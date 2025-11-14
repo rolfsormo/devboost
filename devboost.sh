@@ -402,7 +402,7 @@ db_run_doctor() {
 
 # Main entry point and CLI
 
-DB_VERSION="1.1.1"
+DB_VERSION="1.1.2"
 DB_SUBCOMMAND="apply"
 DB_DRY_RUN=false
 DB_VERBOSE=false
