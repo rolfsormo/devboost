@@ -115,7 +115,7 @@ su - testdevboost
 
 # Run tests
 cd /path/to/devboost
-./dist/devboost.sh apply
+./devboost.sh apply
 ```
 
 ## Continuous Integration

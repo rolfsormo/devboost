@@ -24,7 +24,7 @@ WORKDIR /home/testuser
 USER testuser
 
 # Note: devboost.sh will be mounted via volume in docker-compose
-# For standalone builds, copy it: COPY dist/devboost.sh /tmp/devboost.sh
+# For standalone builds, copy it: COPY devboost.sh /tmp/devboost.sh
 
 # Default command
 CMD ["/bin/bash"]

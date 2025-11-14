@@ -321,8 +321,8 @@ Before submitting changes, you **must** run and pass all applicable tests:
 - [ ] Implement `db_module_foo_apply()` (idempotent, use helpers)
 - [ ] Add to `build.sh` (file inclusion + registration)
 - [ ] Add config options to `.devboost.yaml.example`
-- [ ] Test: `./build.sh && ./dist/devboost.sh plan`
-- [ ] Test: `./dist/devboost.sh apply` (idempotent)
+- [ ] Test: `./build.sh && ./devboost.sh plan`
+- [ ] Test: `./devboost.sh apply` (idempotent)
 - [ ] Update README if user-facing
 - [ ] Update CHANGELOG
 - [ ] Commit with CBEAMS style
