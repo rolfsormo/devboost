@@ -20,6 +20,7 @@ with OS/tooling-specific adjustments.
 - Linux test script now supports both Docker and Podman
 - Test infrastructure automatically installs Podman if neither Docker nor Podman is available
 - Improved error messages and platform detection
+- **README.md completely rewritten** - More welcoming, better organized, includes complete tool list with links
 
 ### Fixed
 - YAML parsing null value handling (prevents "unbound variable" errors)
