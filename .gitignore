@@ -6,6 +6,10 @@
 # Build output (old - now building directly to root)
 dist/
 
+# Compressed files
+*.gz
+*.zip
+
 # OS files
 .DS_Store
 Thumbs.db
