@@ -1,0 +1,27 @@
+FROM archlinux:latest
+
+# Install basic dependencies
+RUN pacman -Syu --noconfirm && \
+    pacman -S --noconfirm \
+    curl \
+    git \
+    sudo \
+    bash \
+    && pacman -Scc --noconfirm
+
+# Create a test user
+RUN useradd -m -s /bin/bash testuser && \
+    echo "testuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Set working directory
+WORKDIR /home/testuser
+
+# Switch to test user
+USER testuser
+
+# Note: devboost.sh will be mounted via volume in docker-compose
+# For standalone builds, copy it: COPY dist/devboost.sh /tmp/devboost.sh
+
+# Default command
+CMD ["/bin/bash"]
+

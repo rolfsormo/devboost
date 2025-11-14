@@ -5,6 +5,8 @@
 
 # Build output
 dist/
+# But keep dist/ directory structure for Docker tests
+!dist/.gitkeep
 
 # OS files
 .DS_Store

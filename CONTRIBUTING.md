@@ -52,11 +52,36 @@ We welcome contributions of all kinds:
 
 #### Platform Testing
 
+We have automated test scripts for all supported platforms:
+
+**Linux Testing (Docker/Podman):**
+```bash
+# Test on a specific distribution
+./tests/test-linux.sh ubuntu
+./tests/test-linux.sh debian
+./tests/test-linux.sh fedora
+./tests/test-linux.sh arch
+
+# Test on all distributions
+./tests/test-linux.sh all
+```
+
+**Note**: The script automatically uses Docker or Podman (installing Podman if needed). On macOS, Podman is installed via Homebrew. Arch Linux tests are skipped on ARM64 systems.
+
+**macOS Testing (Sandboxed):**
+```bash
+# Run tests in a temporary environment (won't affect your config)
+./tests/test-macos.sh
+```
+
 If you're adding platform-specific code:
 
-- [ ] Test on macOS (if available)
-- [ ] Test on Linux (Ubuntu/Debian, Fedora, or Arch if available)
+- [ ] Run the appropriate test script(s)
+- [ ] Test on macOS (if available) using `./tests/test-macos.sh`
+- [ ] Test on Linux using `./tests/test-linux.sh [distro]`
 - [ ] Document any platform limitations
+
+See [tests/README.md](tests/README.md) for detailed testing documentation.
 
 #### Module Testing
 
@@ -161,6 +186,7 @@ Adding modules is designed to be super easy! See [AGENTS.md](AGENTS.md#3-module-
 2. **Plan mode**: `./dist/devboost.sh plan` (should not error)
 3. **Apply mode**: `./dist/devboost.sh apply` (should work)
 4. **Idempotency**: Run `apply` twice, second should be no-op
+5. **Platform tests**: Run `./tests/test-macos.sh` (macOS) or `./tests/test-linux.sh [distro]` (Linux)
 
 ### Recommended Testing
 

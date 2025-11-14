@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  ubuntu:
+    build:
+      context: ../..
+      dockerfile: tests/docker/Dockerfile.ubuntu
+    volumes:
+      - ../../dist:/tmp/dist:ro
+    working_dir: /home/testuser
+    stdin_open: true
+    tty: true
+
+  debian:
+    build:
+      context: ../..
+      dockerfile: tests/docker/Dockerfile.debian
+    volumes:
+      - ../../dist:/tmp/dist:ro
+    working_dir: /home/testuser
+    stdin_open: true
+    tty: true
+
+  fedora:
+    build:
+      context: ../..
+      dockerfile: tests/docker/Dockerfile.fedora
+    volumes:
+      - ../../dist:/tmp/dist:ro
+    working_dir: /home/testuser
+    stdin_open: true
+    tty: true
+
+  arch:
+    build:
+      context: ../..
+      dockerfile: tests/docker/Dockerfile.arch
+    volumes:
+      - ../../dist:/tmp/dist:ro
+    working_dir: /home/testuser
+    stdin_open: true
+    tty: true
+

@@ -56,7 +56,7 @@ cd devboost
 ./dist/devboost.sh apply
 ```
 
-**Note**: This project has been tested on macOS. Linux support is implemented but not yet fully tested. Pull requests for testing and improvements on Linux distributions are very welcome!
+**Note**: This project has been tested on macOS and Linux (Ubuntu, Debian, Fedora). The test suite automatically uses Docker or Podman (installing Podman if needed). Arch Linux tests are skipped on ARM64 systems due to image availability limitations.
 
 ## Features
 
@@ -346,9 +346,9 @@ If you see `command not found: __zoxide_pwd`, ensure zoxide is installed and the
 
 ## Contributing
 
-Contributions are very welcome! This project has been tested on macOS, but Linux support needs more testing. Pull requests are encouraged, especially for:
+Contributions are very welcome! This project has been tested on macOS and Linux (Ubuntu, Debian, Fedora). Pull requests are encouraged for:
 
-- Testing on different Linux distributions
+- Testing on additional Linux distributions
 - Bug fixes and improvements
 - New modules
 - Documentation improvements

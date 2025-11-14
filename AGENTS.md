@@ -228,14 +228,39 @@ fi
 
 ### 6. Testing Requirements
 
-Before submitting changes:
+**All tests must pass before a change can be considered done.**
+
+Before submitting changes, you **must** run and pass all applicable tests:
 
 1. **Build test**: `./build.sh` must succeed
 2. **Syntax check**: `bash -n dist/devboost.sh` must pass
 3. **Plan test**: `./dist/devboost.sh plan` should show expected changes
 4. **Idempotency test**: Run `apply` twice, second run should be no-op
 5. **Config test**: Test with minimal config and full config
-6. **OS test**: Test on target OS (macOS/Linux) if possible
+6. **Platform tests**: 
+   - **macOS**: `./tests/test-macos.sh` must pass
+   - **Linux**: `./tests/test-linux.sh all` must pass (if Docker is available)
+   - If you can't test on a platform, note it in your PR and ask for help
+
+**Test Execution:**
+```bash
+# Build first
+./build.sh
+
+# Test on macOS (sandboxed, safe)
+./tests/test-macos.sh
+
+# Test on all Linux distributions (requires Docker)
+./tests/test-linux.sh all
+
+# Or test individual distributions
+./tests/test-linux.sh ubuntu
+./tests/test-linux.sh debian
+./tests/test-linux.sh fedora
+./tests/test-linux.sh arch
+```
+
+**Failure is not an option**: If tests fail, the change is not complete. Fix the issues or document why the failure is acceptable (with maintainer approval).
 
 ### 7. Documentation Requirements
 

@@ -6,7 +6,14 @@ db_yaml_get() {
     local path="$1" default="${2-}"
     if [[ -f "$DB_CONFIG_PATH" ]]; then
         if db_command_exists yq; then
-            yq -e "$path" "$DB_CONFIG_PATH" 2>/dev/null || echo "$default"
+            local result
+            result=$(yq "$path" "$DB_CONFIG_PATH" 2>/dev/null || echo "$default")
+            # Handle null values from yq
+            if [[ "$result" == "null" ]] || [[ -z "$result" ]]; then
+                echo "$default"
+            else
+                echo "$result"
+            fi
         elif db_command_exists python3 && python3 -c "import yaml" 2>/dev/null; then
             python3 -c "
 import yaml
