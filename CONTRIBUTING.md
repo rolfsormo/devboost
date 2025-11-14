@@ -44,11 +44,11 @@ We welcome contributions of all kinds:
 #### Basic Testing Checklist
 
 - [ ] **Build test**: `./build.sh` succeeds
-- [ ] **Syntax check**: `bash -n dist/devboost.sh` passes
-- [ ] **Plan test**: `./dist/devboost.sh plan` shows expected changes
+- [ ] **Syntax check**: `bash -n devboost.sh` passes
+- [ ] **Plan test**: `./devboost.sh plan` shows expected changes
 - [ ] **Idempotency test**: Run `apply` twice - second run should be no-op
 - [ ] **Config test**: Test with minimal config and full config
-- [ ] **Dry-run test**: `./dist/devboost.sh plan` works correctly
+- [ ] **Dry-run test**: `./devboost.sh plan` works correctly
 
 #### Platform Testing
 
@@ -182,9 +182,9 @@ Adding modules is designed to be super easy! See [AGENTS.md](AGENTS.md#3-module-
 
 ### Minimum Testing Requirements
 
-1. **Build and syntax**: `./build.sh && bash -n dist/devboost.sh`
-2. **Plan mode**: `./dist/devboost.sh plan` (should not error)
-3. **Apply mode**: `./dist/devboost.sh apply` (should work)
+1. **Build and syntax**: `./build.sh && bash -n devboost.sh`
+2. **Plan mode**: `./devboost.sh plan` (should not error)
+3. **Apply mode**: `./devboost.sh apply` (should work)
 4. **Idempotency**: Run `apply` twice, second should be no-op
 5. **Platform tests**: Run `./tests/test-macos.sh` (macOS) or `./tests/test-linux.sh [distro]` (Linux)
 

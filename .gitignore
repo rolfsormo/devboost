@@ -3,10 +3,8 @@
 .devboost.state.json
 .devboost/
 
-# Build output
+# Build output (old - now building directly to root)
 dist/
-# But keep dist/ directory structure for Docker tests
-!dist/.gitkeep
 
 # OS files
 .DS_Store

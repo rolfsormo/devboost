@@ -121,7 +121,7 @@ Core file helpers ensure safety:
 4. Module registration code
 5. Main execution wrapper
 
-Result: Single `dist/devboost.sh` file (~1200 lines) that's self-contained.
+Result: Single `devboost.sh` file (~1280 lines) that's self-contained.
 
 ## Adding a New Module
 
