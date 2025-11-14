@@ -226,6 +226,24 @@ fi
   - New features (MINOR)
   - Bug fixes (PATCH)
 
+**REQUIRED Before Pushing to origin/main:**
+
+1. **Bump version** if needed (MAJOR for breaking changes, MINOR for new features, PATCH for fixes)
+2. **Build the script**: `./build.sh` must succeed (dist/ is gitignored, but must be built)
+3. **Verify build**: `bash -n dist/devboost.sh` must pass
+4. **Commit version bump** in `core/core_main.sh` (the built `dist/devboost.sh` is gitignored and not committed)
+
+**Version Bump Guidelines:**
+- **PATCH** (1.0.0 → 1.0.1): Bug fixes, documentation updates, internal improvements
+- **MINOR** (1.0.0 → 1.1.0): New features, new modules, new config options (backwards compatible)
+- **MAJOR** (1.0.0 → 2.0.0): Breaking changes, config schema changes, removed features
+
+**Never push to main without:**
+- ✅ Version bumped (if changes warrant it)
+- ✅ Script built (`./build.sh`)
+- ✅ Build verified (`bash -n dist/devboost.sh`)
+- ✅ All tests passing
+
 ### 6. Testing Requirements
 
 **All tests must pass before a change can be considered done.**
