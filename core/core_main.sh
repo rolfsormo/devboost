@@ -1,6 +1,6 @@
 # Main entry point and CLI
 
-DB_VERSION="1.0.0"
+DB_VERSION="1.1.0"
 DB_SUBCOMMAND="apply"
 DB_DRY_RUN=false
 DB_VERBOSE=false
