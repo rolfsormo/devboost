@@ -2,6 +2,62 @@
 
 A single command that bootstraps a workstation (macOS + Linux) into a modern dev environment: zsh + starship + znap + fzf/zoxide/atuin + mise + direnv + tmux(+TPM)/resurrect/continuum/yank/logging — without clobbering user customizations.
 
+## Quick Install & Run
+
+### Option 1: Direct Download and Run (Recommended)
+
+```bash
+# Download and run in one command
+curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/dist/devboost.sh | bash -s -- apply
+```
+
+**Note**: This downloads and executes the script directly. For better security, use Option 2 to review the script first.
+
+### Option 2: Download First, Then Run (More Secure)
+
+```bash
+# Download the script
+curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/dist/devboost.sh -o /tmp/devboost.sh
+
+# Review it (optional but recommended)
+less /tmp/devboost.sh
+
+# Run it
+bash /tmp/devboost.sh apply
+```
+
+### Option 3: Install to PATH
+
+```bash
+# Download to a permanent location
+curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/dist/devboost.sh -o ~/bin/devboost
+
+# Make it executable
+chmod +x ~/bin/devboost
+
+# Ensure ~/bin is in your PATH (add to ~/.zshrc if needed)
+export PATH="$HOME/bin:$PATH"
+
+# Now run from anywhere
+devboost apply
+```
+
+### Option 4: Build from Source
+
+```bash
+# Clone the repository
+git clone https://github.com/rolfsormo/devboost.git
+cd devboost
+
+# Build the single-file script
+./build.sh
+
+# Run it
+./dist/devboost.sh apply
+```
+
+**Note**: This project has been tested on macOS. Linux support is implemented but not yet fully tested. Pull requests for testing and improvements on Linux distributions are very welcome!
+
 ## Features
 
 - **Single command** to install/upgrade: `devboost` (or `sh devboost.sh`)
@@ -290,16 +346,25 @@ If you see `command not found: __zoxide_pwd`, ensure zoxide is installed and the
 
 ## Contributing
 
-See [AGENTS.md](AGENTS.md) for development guidelines, including:
+Contributions are very welcome! This project has been tested on macOS, but Linux support needs more testing. Pull requests are encouraged, especially for:
+
+- Testing on different Linux distributions
+- Bug fixes and improvements
+- New modules
+- Documentation improvements
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines, including:
+- How to get started
+- Testing requirements (all code must be tested!)
 - Code quality standards
 - How to add new modules (it's super easy!)
 - Commit message style (CBEAMS)
-- Versioning strategy
-- Testing requirements
+
+See [AGENTS.md](AGENTS.md) for development guidelines and best practices.
 
 ## License
 
-MIT
+MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Changelog
 
