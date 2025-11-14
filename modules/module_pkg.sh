@@ -32,6 +32,9 @@ db_module_pkg_apply() {
         [atuin]="atuin"
         [starship]="starship"
         [tmux]="tmux"
+        [dust]="dust"
+        [duf]="duf"
+        [procs]="procs"
     )
     
     declare -A pkg_map_ubuntu=(
@@ -51,6 +54,9 @@ db_module_pkg_apply() {
         [atuin]="atuin"
         [starship]="starship"
         [tmux]="tmux"
+        [dust]="dust"
+        [duf]="duf"
+        [procs]="procs"
     )
     
     declare -A pkg_map_fedora=(
@@ -70,6 +76,9 @@ db_module_pkg_apply() {
         [atuin]="atuin"
         [starship]="starship"
         [tmux]="tmux"
+        [dust]="dust"
+        [duf]="duf"
+        [procs]="procs"
     )
     
     declare -A pkg_map_arch=(
@@ -89,13 +98,16 @@ db_module_pkg_apply() {
         [atuin]="atuin"
         [starship]="starship"
         [tmux]="tmux"
+        [dust]="dust"
+        [duf]="duf"
+        [procs]="procs"
     )
     
     # Get base packages from config
     local base_pkgs_str=$(db_yaml_get_list '.packages.base[]')
     if [[ -z "$base_pkgs_str" ]]; then
         # Default packages
-        base_pkgs_str="zsh zoxide fzf ripgrep fd bat eza jq yq git-delta lazygit direnv mise atuin starship tmux"
+        base_pkgs_str="zsh zoxide fzf ripgrep fd bat eza jq yq git-delta lazygit direnv mise atuin starship tmux dust duf procs"
     fi
     
     # Convert to array

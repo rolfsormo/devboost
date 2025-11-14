@@ -246,7 +246,7 @@ toolchains:
 - **Navigation**: zoxide, fzf
 - **Search**: ripgrep, fd
 - **Viewers**: bat, eza
-- **Utilities**: jq, yq, git-delta, lazygit
+- **Utilities**: jq, yq, git-delta, lazygit, dust, duf, procs
 - **Environment**: direnv, mise, atuin, starship
 - **Terminal**: tmux
 
