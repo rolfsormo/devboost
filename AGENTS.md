@@ -243,7 +243,19 @@ fi
 - ✅ Script built (`./build.sh` - builds to root `devboost.sh`)
 - ✅ Build verified (`bash -n devboost.sh`)
 - ✅ Built `devboost.sh` committed to repository
-- ✅ All tests passing
+- ✅ All tests passing (including any new tests for the feature)
+- ✅ Changes documented (README, CHANGELOG, or code comments as appropriate)
+
+**Complete Workflow for Changes:**
+1. Make your changes
+2. Write/update tests for the changes
+3. Run all tests and ensure they pass
+4. Build and verify: `./build.sh && bash -n devboost.sh`
+5. Update documentation (README, CHANGELOG, etc.)
+6. Bump version if needed (in `core/core_main.sh`)
+7. Rebuild: `./build.sh`
+8. Commit: version bump, code changes, tests, docs, and built `devboost.sh`
+9. Push to origin/main
 
 ### 6. Testing Requirements
 

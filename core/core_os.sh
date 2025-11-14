@@ -35,7 +35,12 @@ db_install_packages() {
                 if ! brew list "$pkg" &>/dev/null; then
                     db_log_info "Installing: $pkg"
                     if [[ "${DB_DRY_RUN:-false}" != "true" ]]; then
-                        brew install "$pkg" || db_log_warn "Failed to install $pkg"
+                        local output
+                        output=$(brew install "$pkg" 2>&1) || {
+                            db_log_error "Failed to install $pkg"
+                            echo "$output" >&2
+                            return 1
+                        }
                     else
                         db_log_info "Would install: $pkg"
                     fi
@@ -52,7 +57,12 @@ db_install_packages() {
                 if ! dpkg -l | grep -q "^ii[[:space:]]*${pkg}[[:space:]]"; then
                     db_log_info "Installing: $pkg"
                     if [[ "${DB_DRY_RUN:-false}" != "true" ]]; then
-                        sudo apt-get install -y "$pkg" || db_log_warn "Failed to install $pkg"
+                        local output
+                        output=$(sudo apt-get install -y "$pkg" 2>&1) || {
+                            db_log_error "Failed to install $pkg"
+                            echo "$output" >&2
+                            return 1
+                        }
                     else
                         db_log_info "Would install: $pkg"
                     fi
@@ -66,7 +76,12 @@ db_install_packages() {
                 if ! rpm -q "$pkg" &>/dev/null; then
                     db_log_info "Installing: $pkg"
                     if [[ "${DB_DRY_RUN:-false}" != "true" ]]; then
-                        sudo dnf install -y "$pkg" || db_log_warn "Failed to install $pkg"
+                        local output
+                        output=$(sudo dnf install -y "$pkg" 2>&1) || {
+                            db_log_error "Failed to install $pkg"
+                            echo "$output" >&2
+                            return 1
+                        }
                     else
                         db_log_info "Would install: $pkg"
                     fi
@@ -80,7 +95,12 @@ db_install_packages() {
                 if ! pacman -Qi "$pkg" &>/dev/null; then
                     db_log_info "Installing: $pkg"
                     if [[ "${DB_DRY_RUN:-false}" != "true" ]]; then
-                        sudo pacman -S --noconfirm "$pkg" || db_log_warn "Failed to install $pkg"
+                        local output
+                        output=$(sudo pacman -S --noconfirm "$pkg" 2>&1) || {
+                            db_log_error "Failed to install $pkg"
+                            echo "$output" >&2
+                            return 1
+                        }
                     else
                         db_log_info "Would install: $pkg"
                     fi

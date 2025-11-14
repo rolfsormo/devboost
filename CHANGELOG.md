@@ -24,6 +24,8 @@ with OS/tooling-specific adjustments.
 ### Fixed
 - YAML parsing null value handling (prevents "unbound variable" errors)
 - Test script compatibility with both Docker and Podman
+- Package installation output now suppressed (cleaner output, errors still shown on failure)
+- Missing packages for aliases (dust, duf, procs) now installed by default
 
 ## [1.0.0] - 2025-01-XX
 
