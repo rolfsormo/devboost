@@ -9,7 +9,21 @@ with OS/tooling-specific adjustments.
 ## [Unreleased]
 
 ### Added
-- Initial release
+- Comprehensive test suite for macOS and Linux
+- Automated Podman installation and setup (macOS via Homebrew, Linux via system package managers)
+- Docker/Podman runtime detection with automatic fallback
+- Arch Linux ARM64 detection and graceful skipping
+- Test scripts for all supported distributions (Ubuntu, Debian, Fedora, Arch)
+- Sandboxed macOS testing environment
+
+### Changed
+- Linux test script now supports both Docker and Podman
+- Test infrastructure automatically installs Podman if neither Docker nor Podman is available
+- Improved error messages and platform detection
+
+### Fixed
+- YAML parsing null value handling (prevents "unbound variable" errors)
+- Test script compatibility with both Docker and Podman
 
 ## [1.0.0] - 2025-01-XX
 
