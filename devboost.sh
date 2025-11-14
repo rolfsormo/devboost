@@ -402,7 +402,7 @@ db_run_doctor() {
 
 # Main entry point and CLI
 
-DB_VERSION="1.1.2"
+DB_VERSION="1.1.3"
 DB_SUBCOMMAND="apply"
 DB_DRY_RUN=false
 DB_VERBOSE=false
@@ -1279,7 +1279,12 @@ db_module_services_apply() {
             if [[ "${DB_DRY_RUN:-false}" == "true" ]]; then
                 db_log_info "Would start atuin service via brew"
             else
-                brew services start atuin 2>/dev/null || db_log_verbose "Atuin service may already be running"
+                # Check if service is already running to avoid output message
+                if brew services list 2>/dev/null | grep -q "^atuin.*started"; then
+                    db_log_verbose "Atuin service already running"
+                else
+                    brew services start atuin >/dev/null 2>&1 || db_log_verbose "Failed to start atuin service"
+                fi
             fi
         fi
     else
