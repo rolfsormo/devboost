@@ -67,119 +67,64 @@ devboost apply
 
 ## 📦 What Gets Installed
 
-devboost installs and configures a curated set of modern development tools. Here's everything that's included:
+devboost installs and configures a curated set of modern development tools. Here's everything that's included with links to their sources:
 
-### 🛠️ Core Tools
+### 🐚 Shell & Navigation
 
-#### Shell & Navigation
 - **[zsh](https://www.zsh.org/)** - Powerful shell with extensive customization
 - **[zoxide](https://github.com/ajeetdsouza/zoxide)** - Smarter `cd` command that learns your habits
 - **[fzf](https://github.com/junegunn/fzf)** - Fuzzy finder for files, history, and more
 - **[atuin](https://github.com/ellie/atuin)** - Magical shell history with sync and search
 
-#### Search & File Operations
+**Shell Configuration:**
+- **[znap](https://github.com/marlonrichert/zsh-snap)** - Fast zsh plugin manager
+- **[zsh-autosuggestions](https://github.com/zsh-users/zsh-autosuggestions)** - Suggests commands as you type
+- **[zsh-syntax-highlighting](https://github.com/zsh-users/zsh-syntax-highlighting)** - Real-time syntax highlighting
+- **[starship](https://github.com/starship/starship)** - Minimal, fast, customizable prompt
+- **Smart aliases** - `ls` → `eza`, `cat` → `bat`, `grep` → `rg`, `find` → `fd`, `du` → `dust`, `df` → `duf`, `ps` → `procs`
+
+### 🔍 Search & File Operations
+
 - **[ripgrep](https://github.com/BurntSushi/ripgrep)** (`rg`) - Blazing fast text search
 - **[fd](https://github.com/sharkdp/fd)** - Simple, fast alternative to `find`
 
-#### Modern Replacements
+### 🎨 Modern Replacements
+
 - **[bat](https://github.com/sharkdp/bat)** - `cat` with syntax highlighting and Git integration
 - **[eza](https://github.com/eza-community/eza)** - Modern `ls` with colors, Git status, and more
 - **[dust](https://github.com/bootandy/dust)** - More intuitive `du` with visual tree
 - **[duf](https://github.com/muesli/duf)** - Better `df` with colors and formatting
 - **[procs](https://github.com/dalance/procs)** - Modern `ps` with colors and tree view
 
-#### Utilities
+### 🛠️ Utilities
+
 - **[jq](https://github.com/jqlang/jq)** - Command-line JSON processor
 - **[yq](https://github.com/mikefarah/yq)** - YAML processor (jq for YAML)
 - **[git-delta](https://github.com/dandavison/delta)** - Syntax-highlighted pager for Git
 - **[lazygit](https://github.com/jesseduffield/lazygit)** - Simple terminal UI for Git
 
-#### Environment Management
+### 🌍 Environment Management
+
 - **[mise](https://github.com/jdx/mise)** - Fast toolchain manager (replaces asdf/nvm/pyenv)
 - **[direnv](https://github.com/direnv/direnv)** - Load and unload environment variables per directory
 - **[starship](https://github.com/starship/starship)** - Minimal, fast, customizable prompt
 - **[tmux](https://github.com/tmux/tmux)** - Terminal multiplexer with session persistence
 
-### 🎨 Configuration
-
-#### Shell Setup
-- **zsh** with [znap](https://github.com/marlonrichert/zsh-snap) plugin manager
-- **zsh-autosuggestions** - Suggests commands as you type
-- **zsh-syntax-highlighting** - Real-time syntax highlighting
-- **Starship prompt** - Beautiful, minimal prompt with Git status
-- **Smart aliases** - `ls` → `eza`, `cat` → `bat`, `grep` → `rg`, etc.
-
-#### Tmux Setup
-- **TPM** (Tmux Plugin Manager)
-- **tmux-resurrect** - Restore tmux sessions after restart
-- **tmux-continuum** - Automatic session saving
-- **tmux-yank** - Copy to system clipboard
-- **tmux-logging** - Logging capabilities
-- Sensible defaults (mouse support, large history, etc.)
-
-#### Toolchains (via mise)
+**Toolchains (via mise):**
 - **Node.js** (LTS)
 - **Python** (3.12)
 - **Go** (1.23)
 - **Rust** (stable)
 - **Deno** (latest)
 
----
+### 🎭 Tmux Configuration
 
-## 📋 Complete Tool List
-
-For advanced users who want to verify the tool selection, here's the complete list with links:
-
-### Shell & Navigation
-| Tool | Purpose | Link |
-|------|---------|------|
-| zsh | Shell | https://www.zsh.org/ |
-| zoxide | Smart cd | https://github.com/ajeetdsouza/zoxide |
-| fzf | Fuzzy finder | https://github.com/junegunn/fzf |
-| atuin | Shell history | https://github.com/ellie/atuin |
-
-### Search & Files
-| Tool | Purpose | Link |
-|------|---------|------|
-| ripgrep | Text search | https://github.com/BurntSushi/ripgrep |
-| fd | File finder | https://github.com/sharkdp/fd |
-
-### Modern Replacements
-| Tool | Replaces | Link |
-|------|----------|------|
-| bat | cat | https://github.com/sharkdp/bat |
-| eza | ls | https://github.com/eza-community/eza |
-| dust | du | https://github.com/bootandy/dust |
-| duf | df | https://github.com/muesli/duf |
-| procs | ps | https://github.com/dalance/procs |
-
-### Utilities
-| Tool | Purpose | Link |
-|------|---------|------|
-| jq | JSON processor | https://github.com/jqlang/jq |
-| yq | YAML processor | https://github.com/mikefarah/yq |
-| git-delta | Git pager | https://github.com/dandavison/delta |
-| lazygit | Git TUI | https://github.com/jesseduffield/lazygit |
-
-### Environment
-| Tool | Purpose | Link |
-|------|---------|------|
-| mise | Toolchain manager | https://github.com/jdx/mise |
-| direnv | Per-directory env | https://github.com/direnv/direnv |
-| starship | Prompt | https://github.com/starship/starship |
-| tmux | Terminal multiplexer | https://github.com/tmux/tmux |
-
-### Plugins & Extensions
-| Tool | Purpose | Link |
-|------|---------|------|
-| znap | zsh plugin manager | https://github.com/marlonrichert/zsh-snap |
-| zsh-autosuggestions | Command suggestions | https://github.com/zsh-users/zsh-autosuggestions |
-| zsh-syntax-highlighting | Syntax highlighting | https://github.com/zsh-users/zsh-syntax-highlighting |
-| TPM | Tmux plugin manager | https://github.com/tmux-plugins/tpm |
-| tmux-resurrect | Session restore | https://github.com/tmux-plugins/tmux-resurrect |
-| tmux-continuum | Auto-save sessions | https://github.com/tmux-plugins/tmux-continuum |
-| tmux-yank | Clipboard integration | https://github.com/tmux-plugins/tmux-yank |
-| tmux-logging | Logging | https://github.com/tmux-plugins/tmux-logging |
+- **[TPM](https://github.com/tmux-plugins/tpm)** - Tmux Plugin Manager
+- **[tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect)** - Restore tmux sessions after restart
+- **[tmux-continuum](https://github.com/tmux-plugins/tmux-continuum)** - Automatic session saving
+- **[tmux-yank](https://github.com/tmux-plugins/tmux-yank)** - Copy to system clipboard
+- **[tmux-logging](https://github.com/tmux-plugins/tmux-logging)** - Logging capabilities
+- Sensible defaults (mouse support, large history, etc.)
 
 ---
 
