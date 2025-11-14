@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# devboost - Bootstrap a modern dev environment
+# Idempotent, config-driven, non-destructive
+# This file is the entry point - core and modules are concatenated during build
+
+set -euo pipefail
+
+# Version is set in core_main.sh
+

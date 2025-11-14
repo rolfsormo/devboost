@@ -1,0 +1,97 @@
+# ~/.devboost.yaml
+# Example configuration file for devboost
+# Copy this to ~/.devboost.yaml and customize as needed
+
+system:
+  tmux_control_mode: true        # true if user runs iTerm2 with: tmux -CC new -As main
+  package_manager: auto          # auto|brew|apt|dnf|pacman
+
+packages:
+  base:
+    - zsh
+    - zoxide
+    - fzf
+    - ripgrep
+    - fd
+    - bat
+    - eza
+    - jq
+    - yq
+    - git-delta
+    - lazygit
+    - direnv
+    - mise
+    - atuin
+    - starship
+    - tmux
+  optional:
+    - btop
+    - duf
+    - dust
+    - procs
+    - httpie
+
+zsh:
+  enable: true
+  plugin_manager: znap           # fixed
+  znap_git: https://github.com/marlonrichert/zsh-snap.git
+  znap_path: ~/.zsh-snap
+  include_file: ~/.zshrc.devboost # devboost-managed; sourced from user's ~/.zshrc
+  history:
+    use_atuin: true
+  fzf:
+    enable: true
+    default_command_files: "fd --type f --hidden --follow --exclude .git"
+    default_command_dirs:  "fd --type d --hidden --follow --exclude .git"
+  aliases:
+    enable: true
+
+prompt:
+  enable_starship: true
+  starship_config: ~/.config/starship.toml
+
+tmux:
+  enable: true
+  tpm_path: ~/.tmux/plugins/tpm
+  conf_file: ~/.tmux.conf
+  plugins:
+    - tmux-plugins/tpm
+    - tmux-plugins/tmux-resurrect
+    - tmux-plugins/tmux-continuum
+    - tmux-plugins/tmux-yank
+    - tmux-plugins/tmux-logging
+  settings:
+    base_index: 1
+    pane_base_index: 1
+    mouse: true
+    history_limit: 50000
+    escape_time: 0
+    focus_events: true
+    continuum_restore: true
+    resurrect_capture_pane_contents: true
+
+toolchains:
+  enable_mise: true
+  globals:
+    node: "lts"
+    python: "3.12"
+    go: "1.23"
+    rust: "stable"
+    deno: "latest"
+
+direnv:
+  enable: true
+  rc_path: ~/.direnvrc
+  content: |
+    use_mise() { eval "$(mise activate direnv)"; }
+
+git:
+  delta:
+    enable: true
+    line_numbers: true
+    navigate: true
+
+aesthetics:
+  lsc_colours: "ExFxCxDxBxegedabagacad"
+  clicolor: true
+
