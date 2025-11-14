@@ -1,0 +1,38 @@
+name: Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-linux:
+    name: Test on ${{ matrix.distro }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        distro: [ubuntu, debian, fedora, arch]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build devboost.sh
+        run: ./build.sh
+      
+      - name: Test on ${{ matrix.distro }}
+        run: ./tests/test-linux.sh ${{ matrix.distro }}
+  
+  test-macos:
+    name: Test on macOS
+    runs-on: macos-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build devboost.sh
+        run: ./build.sh
+      
+      - name: Test on macOS
+        run: ./tests/test-macos.sh
+

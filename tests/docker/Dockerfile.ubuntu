@@ -1,0 +1,31 @@
+FROM ubuntu:22.04
+
+# Avoid interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install basic dependencies
+RUN apt-get update && \
+    apt-get install -y \
+    curl \
+    git \
+    sudo \
+    bash \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a test user
+RUN useradd -m -s /bin/bash testuser && \
+    echo "testuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Set working directory
+WORKDIR /home/testuser
+
+# Switch to test user
+USER testuser
+
+# Note: devboost.sh will be mounted via volume in docker-compose
+# For standalone builds, copy it: COPY dist/devboost.sh /tmp/devboost.sh
+
+# Default command
+CMD ["/bin/bash"]
+

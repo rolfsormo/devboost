@@ -1,0 +1,26 @@
+FROM fedora:latest
+
+# Install basic dependencies
+RUN dnf install -y \
+    curl \
+    git \
+    sudo \
+    bash \
+    && dnf clean all
+
+# Create a test user
+RUN useradd -m -s /bin/bash testuser && \
+    echo "testuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Set working directory
+WORKDIR /home/testuser
+
+# Switch to test user
+USER testuser
+
+# Note: devboost.sh will be mounted via volume in docker-compose
+# For standalone builds, copy it: COPY dist/devboost.sh /tmp/devboost.sh
+
+# Default command
+CMD ["/bin/bash"]
+
