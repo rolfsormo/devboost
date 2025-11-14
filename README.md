@@ -334,7 +334,9 @@ Alternatively, Python 3 with PyYAML works as a fallback.
 
 ### Package Installation Failures
 
-Some packages may not be available in all package managers. The script will warn but continue. You can install missing packages manually or add them to your config's `packages.optional` list.
+Some packages may not be available in all package managers. The script will show error output if installation fails, allowing you to diagnose the issue. You can install missing packages manually or add them to your config's `packages.optional` list.
+
+**Note**: Package installation output is suppressed for cleaner logs. If a package fails to install, the full error output will be displayed to help you troubleshoot.
 
 ### Tmux Plugins Not Installing
 
