@@ -24,11 +24,11 @@ packages:
     - atuin
     - starship
     - tmux
+    - dust
+    - duf
+    - procs
   optional:
     - btop
-    - duf
-    - dust
-    - procs
     - httpie
 
 zsh:
