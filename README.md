@@ -107,7 +107,6 @@ devboost installs and configures a curated set of modern development tools. Here
 
 - **[mise](https://github.com/jdx/mise)** - Fast toolchain manager (replaces asdf/nvm/pyenv)
 - **[direnv](https://github.com/direnv/direnv)** - Load and unload environment variables per directory
-- **[starship](https://github.com/starship/starship)** - Minimal, fast, customizable prompt
 - **[tmux](https://github.com/tmux/tmux)** - Terminal multiplexer with session persistence
 
 **Toolchains (via mise):**
