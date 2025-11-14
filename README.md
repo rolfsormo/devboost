@@ -8,7 +8,7 @@ A single command that bootstraps a workstation (macOS + Linux) into a modern dev
 
 ```bash
 # Download and run in one command
-curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/dist/devboost.sh | bash -s -- apply
+curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/devboost.sh | bash -s -- apply
 ```
 
 **Note**: This downloads and executes the script directly. For better security, use Option 2 to review the script first.
@@ -17,7 +17,7 @@ curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/dist/devboo
 
 ```bash
 # Download the script
-curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/dist/devboost.sh -o /tmp/devboost.sh
+curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/devboost.sh -o /tmp/devboost.sh
 
 # Review it (optional but recommended)
 less /tmp/devboost.sh
@@ -30,7 +30,7 @@ bash /tmp/devboost.sh apply
 
 ```bash
 # Download to a permanent location
-curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/dist/devboost.sh -o ~/bin/devboost
+curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/devboost.sh -o ~/bin/devboost
 
 # Make it executable
 chmod +x ~/bin/devboost
@@ -53,7 +53,7 @@ cd devboost
 ./build.sh
 
 # Run it
-./dist/devboost.sh apply
+./devboost.sh apply
 ```
 
 **Note**: This project has been tested on macOS and Linux (Ubuntu, Debian, Fedora). The test suite automatically uses Docker or Podman (installing Podman if needed). Arch Linux tests are skipped on ARM64 systems due to image availability limitations.
@@ -90,7 +90,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed design documentation.
 
 ```bash
 # Download and run the pre-built script
-curl -fsSL https://raw.githubusercontent.com/yourusername/devboost/main/dist/devboost.sh | bash
+curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/devboost.sh | bash
 ```
 
 ### Option 2: Build from Source
@@ -104,14 +104,14 @@ cd devboost
 ./build.sh
 
 # Run it
-./dist/devboost.sh apply
+./devboost.sh apply
 ```
 
 ### Option 3: Install to PATH
 
 ```bash
 # After building or downloading
-cp dist/devboost.sh ~/bin/devboost
+cp devboost.sh ~/bin/devboost
 chmod +x ~/bin/devboost
 
 # Now you can run from anywhere

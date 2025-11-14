@@ -229,9 +229,9 @@ fi
 **REQUIRED Before Pushing to origin/main:**
 
 1. **Bump version** if needed (MAJOR for breaking changes, MINOR for new features, PATCH for fixes)
-2. **Build the script**: `./build.sh` must succeed (dist/ is gitignored, but must be built)
-3. **Verify build**: `bash -n dist/devboost.sh` must pass
-4. **Commit version bump** in `core/core_main.sh` (the built `dist/devboost.sh` is gitignored and not committed)
+2. **Build the script**: `./build.sh` must succeed (builds to `devboost.sh` in root)
+3. **Verify build**: `bash -n devboost.sh` must pass
+4. **Commit both**: version bump in `core/core_main.sh` AND the built `devboost.sh` in root
 
 **Version Bump Guidelines:**
 - **PATCH** (1.0.0 → 1.0.1): Bug fixes, documentation updates, internal improvements
@@ -240,8 +240,9 @@ fi
 
 **Never push to main without:**
 - ✅ Version bumped (if changes warrant it)
-- ✅ Script built (`./build.sh`)
-- ✅ Build verified (`bash -n dist/devboost.sh`)
+- ✅ Script built (`./build.sh` - builds to root `devboost.sh`)
+- ✅ Build verified (`bash -n devboost.sh`)
+- ✅ Built `devboost.sh` committed to repository
 - ✅ All tests passing
 
 ### 6. Testing Requirements
@@ -251,8 +252,8 @@ fi
 Before submitting changes, you **must** run and pass all applicable tests:
 
 1. **Build test**: `./build.sh` must succeed
-2. **Syntax check**: `bash -n dist/devboost.sh` must pass
-3. **Plan test**: `./dist/devboost.sh plan` should show expected changes
+2. **Syntax check**: `bash -n devboost.sh` must pass
+3. **Plan test**: `./devboost.sh plan` should show expected changes
 4. **Idempotency test**: Run `apply` twice, second run should be no-op
 5. **Config test**: Test with minimal config and full config
 6. **Platform tests**: 

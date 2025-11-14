@@ -3,8 +3,7 @@
 
 set -euo pipefail
 
-OUT="dist/devboost.sh"
-mkdir -p dist
+OUT="devboost.sh"
 
 {
     # Entry point
