@@ -1,177 +1,234 @@
-# devboost
+# devboost 🚀
 
-A single command that bootstraps a workstation (macOS + Linux) into a modern dev environment: zsh + starship + znap + fzf/zoxide/atuin + mise + direnv + tmux(+TPM)/resurrect/continuum/yank/logging — without clobbering user customizations.
+**One command to transform your workstation into a modern, opinionated development environment.**
 
-## Quick Install & Run
+Transform your macOS or Linux machine into a productivity powerhouse with a single command. devboost installs and configures the best-in-class tools for modern development, all while preserving your existing customizations.
 
-### Option 1: Direct Download and Run (Recommended)
+```bash
+curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/devboost.sh | bash -s -- apply
+```
+
+> **✨ What you get:** A beautiful shell (zsh + starship), smart navigation (zoxide, fzf), powerful search (ripgrep, fd), modern replacements (bat, eza, dust, duf, procs), seamless toolchain management (mise), and a fully configured tmux setup — all in under 5 minutes.
+
+---
+
+## 🎯 Why devboost?
+
+Setting up a development environment is tedious. You spend hours installing tools, configuring shells, tweaking prompts, and setting up aliases. devboost does all of this **automatically** with **sensible defaults** that work out of the box.
+
+**Key principles:**
+- ✅ **Non-destructive**: Never touches your existing configs — uses managed include files
+- ✅ **Idempotent**: Safe to run multiple times — only applies what's needed
+- ✅ **Opinionated**: Curated selection of best-in-class tools
+- ✅ **Zero prompts**: Everything works automatically with smart defaults
+- ✅ **Cross-platform**: Works on macOS and Linux (Ubuntu, Debian, Fedora, Arch)
+
+---
+
+## 🚀 Quick Start
+
+### Install & Run (Recommended)
 
 ```bash
 # Download and run in one command
 curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/devboost.sh | bash -s -- apply
 ```
 
-**Note**: This downloads and executes the script directly. For better security, use Option 2 to review the script first.
+**That's it!** Your development environment is being set up. Grab a coffee ☕ — this takes a few minutes.
 
-### Option 2: Download First, Then Run (More Secure)
+### Alternative: Review First (More Secure)
 
 ```bash
 # Download the script
 curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/devboost.sh -o /tmp/devboost.sh
 
-# Review it (optional but recommended)
+# Review it (recommended)
 less /tmp/devboost.sh
 
 # Run it
 bash /tmp/devboost.sh apply
 ```
 
-### Option 3: Install to PATH
+### Install to PATH
 
 ```bash
 # Download to a permanent location
 curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/devboost.sh -o ~/bin/devboost
-
-# Make it executable
 chmod +x ~/bin/devboost
 
-# Ensure ~/bin is in your PATH (add to ~/.zshrc if needed)
+# Ensure ~/bin is in your PATH
 export PATH="$HOME/bin:$PATH"
 
 # Now run from anywhere
 devboost apply
 ```
 
-### Option 4: Build from Source
+---
 
-```bash
-# Clone the repository
-git clone https://github.com/rolfsormo/devboost.git
-cd devboost
+## 📦 What Gets Installed
 
-# Build the single-file script
-./build.sh
+devboost installs and configures a curated set of modern development tools. Here's everything that's included:
 
-# Run it
-./devboost.sh apply
-```
+### 🛠️ Core Tools
 
-**Note**: This project has been tested on macOS and Linux (Ubuntu, Debian, Fedora). The test suite automatically uses Docker or Podman (installing Podman if needed). Arch Linux tests are skipped on ARM64 systems due to image availability limitations.
+#### Shell & Navigation
+- **[zsh](https://www.zsh.org/)** - Powerful shell with extensive customization
+- **[zoxide](https://github.com/ajeetdsouza/zoxide)** - Smarter `cd` command that learns your habits
+- **[fzf](https://github.com/junegunn/fzf)** - Fuzzy finder for files, history, and more
+- **[atuin](https://github.com/ellie/atuin)** - Magical shell history with sync and search
 
-## Features
+#### Search & File Operations
+- **[ripgrep](https://github.com/BurntSushi/ripgrep)** (`rg`) - Blazing fast text search
+- **[fd](https://github.com/sharkdp/fd)** - Simple, fast alternative to `find`
 
-- **Single command** to install/upgrade: `devboost` (or `sh devboost.sh`)
-- **Idempotent**: safe to re-run; only apply drift
-- **Modular**: each area is a module with clear inputs/outputs
-- **Config-driven**: `~/.devboost.yaml` (defaults applied if missing)
-- **Non-destructive**: keep user customizations intact. We inject managed blocks into separate include files and source them
-- **Cross-OS**: macOS (Homebrew), Debian/Ubuntu (apt), Fedora (dnf), Arch (pacman)
-- **Extendable**: simple module registry pattern; future plugins are just new modules
-- **Zero prompts**: everything works out of the box with sensible defaults
+#### Modern Replacements
+- **[bat](https://github.com/sharkdp/bat)** - `cat` with syntax highlighting and Git integration
+- **[eza](https://github.com/eza-community/eza)** - Modern `ls` with colors, Git status, and more
+- **[dust](https://github.com/bootandy/dust)** - More intuitive `du` with visual tree
+- **[duf](https://github.com/muesli/duf)** - Better `df` with colors and formatting
+- **[procs](https://github.com/dalance/procs)** - Modern `ps` with colors and tree view
 
-## Architecture
+#### Utilities
+- **[jq](https://github.com/jqlang/jq)** - Command-line JSON processor
+- **[yq](https://github.com/mikefarah/yq)** - YAML processor (jq for YAML)
+- **[git-delta](https://github.com/dandavison/delta)** - Syntax-highlighted pager for Git
+- **[lazygit](https://github.com/jesseduffield/lazygit)** - Simple terminal UI for Git
 
-devboost uses a **modular architecture**:
+#### Environment Management
+- **[mise](https://github.com/jdx/mise)** - Fast toolchain manager (replaces asdf/nvm/pyenv)
+- **[direnv](https://github.com/direnv/direnv)** - Load and unload environment variables per directory
+- **[starship](https://github.com/starship/starship)** - Minimal, fast, customizable prompt
+- **[tmux](https://github.com/tmux/tmux)** - Terminal multiplexer with session persistence
 
-- **Core framework** (`core/`): Logging, OS detection, YAML parsing, file operations, module registry
-- **Modules** (`modules/`): One file per feature area (pkg, znap, zsh, starship, tmux, mise, direnv, git, services)
-- **Build system**: Concatenates all modules into a single `devboost.sh` for distribution
+### 🎨 Configuration
 
-This makes it easy to:
-- Add new modules (just create `modules/module_foo.sh` and register it)
-- Maintain and test individual components
-- Keep the codebase readable and organized
+#### Shell Setup
+- **zsh** with [znap](https://github.com/marlonrichert/zsh-snap) plugin manager
+- **zsh-autosuggestions** - Suggests commands as you type
+- **zsh-syntax-highlighting** - Real-time syntax highlighting
+- **Starship prompt** - Beautiful, minimal prompt with Git status
+- **Smart aliases** - `ls` → `eza`, `cat` → `bat`, `grep` → `rg`, etc.
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed design documentation.
+#### Tmux Setup
+- **TPM** (Tmux Plugin Manager)
+- **tmux-resurrect** - Restore tmux sessions after restart
+- **tmux-continuum** - Automatic session saving
+- **tmux-yank** - Copy to system clipboard
+- **tmux-logging** - Logging capabilities
+- Sensible defaults (mouse support, large history, etc.)
 
-## Quick Start
+#### Toolchains (via mise)
+- **Node.js** (LTS)
+- **Python** (3.12)
+- **Go** (1.23)
+- **Rust** (stable)
+- **Deno** (latest)
 
-### Option 1: Download and Run (Recommended)
+---
 
-```bash
-# Download and run the pre-built script
-curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/devboost.sh | bash
-```
+## 📋 Complete Tool List
 
-### Option 2: Build from Source
+For advanced users who want to verify the tool selection, here's the complete list with links:
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/devboost.git
-cd devboost
+### Shell & Navigation
+| Tool | Purpose | Link |
+|------|---------|------|
+| zsh | Shell | https://www.zsh.org/ |
+| zoxide | Smart cd | https://github.com/ajeetdsouza/zoxide |
+| fzf | Fuzzy finder | https://github.com/junegunn/fzf |
+| atuin | Shell history | https://github.com/ellie/atuin |
 
-# Build the single-file script
-./build.sh
+### Search & Files
+| Tool | Purpose | Link |
+|------|---------|------|
+| ripgrep | Text search | https://github.com/BurntSushi/ripgrep |
+| fd | File finder | https://github.com/sharkdp/fd |
 
-# Run it
-./devboost.sh apply
-```
+### Modern Replacements
+| Tool | Replaces | Link |
+|------|----------|------|
+| bat | cat | https://github.com/sharkdp/bat |
+| eza | ls | https://github.com/eza-community/eza |
+| dust | du | https://github.com/bootandy/dust |
+| duf | df | https://github.com/muesli/duf |
+| procs | ps | https://github.com/dalance/procs |
 
-### Option 3: Install to PATH
+### Utilities
+| Tool | Purpose | Link |
+|------|---------|------|
+| jq | JSON processor | https://github.com/jqlang/jq |
+| yq | YAML processor | https://github.com/mikefarah/yq |
+| git-delta | Git pager | https://github.com/dandavison/delta |
+| lazygit | Git TUI | https://github.com/jesseduffield/lazygit |
 
-```bash
-# After building or downloading
-cp devboost.sh ~/bin/devboost
-chmod +x ~/bin/devboost
+### Environment
+| Tool | Purpose | Link |
+|------|---------|------|
+| mise | Toolchain manager | https://github.com/jdx/mise |
+| direnv | Per-directory env | https://github.com/direnv/direnv |
+| starship | Prompt | https://github.com/starship/starship |
+| tmux | Terminal multiplexer | https://github.com/tmux/tmux |
 
-# Now you can run from anywhere
-devboost apply
-```
+### Plugins & Extensions
+| Tool | Purpose | Link |
+|------|---------|------|
+| znap | zsh plugin manager | https://github.com/marlonrichert/zsh-snap |
+| zsh-autosuggestions | Command suggestions | https://github.com/zsh-users/zsh-autosuggestions |
+| zsh-syntax-highlighting | Syntax highlighting | https://github.com/zsh-users/zsh-syntax-highlighting |
+| TPM | Tmux plugin manager | https://github.com/tmux-plugins/tpm |
+| tmux-resurrect | Session restore | https://github.com/tmux-plugins/tmux-resurrect |
+| tmux-continuum | Auto-save sessions | https://github.com/tmux-plugins/tmux-continuum |
+| tmux-yank | Clipboard integration | https://github.com/tmux-plugins/tmux-yank |
+| tmux-logging | Logging | https://github.com/tmux-plugins/tmux-logging |
 
-## Usage
+---
+
+## 💻 Usage
 
 ```bash
 devboost [COMMAND] [OPTIONS]
-
-# default subcommand = apply
 ```
 
 ### Commands
 
-- `apply`: Converge machine to config (default)
-- `plan`: Show actions without changing anything
-- `doctor`: Check prerequisites, PATHs, shells, conflicting files
-- `uninstall`: Remove managed files/blocks (leaves user custom files untouched)
+- **`apply`** - Set up your environment (default)
+- **`plan`** - Preview what would change (dry-run)
+- **`doctor`** - Check system health and prerequisites
+- **`uninstall`** - Remove devboost-managed files
 
 ### Options
 
-- `--config FILE`: Config file path (default: `~/.devboost.yaml`)
-- `--dry-run`: Show what would be done without making changes
-- `--verbose, -v`: Enable verbose output
-- `--help, -h`: Show help message
-- `--version`: Show version
+- `--config FILE` - Custom config file (default: `~/.devboost.yaml`)
+- `--dry-run` - Show what would be done without making changes
+- `--verbose, -v` - Enable verbose output
+- `--help, -h` - Show help message
+- `--version` - Show version
 
 ### Examples
 
 ```bash
-# See what would change
+# Preview changes
 devboost plan
 
-# Apply configuration
+# Set up your environment
 devboost apply
-
-# Apply with verbose output
-devboost apply --verbose
-
-# Use custom config file
-devboost apply --config ~/my-devboost.yaml
 
 # Check system health
 devboost doctor
 
-# Remove devboost managed files
-devboost uninstall
+# Use custom config
+devboost apply --config ~/my-config.yaml
 ```
 
-## Configuration
+---
 
-Create `~/.devboost.yaml` to customize your setup. See `.devboost.yaml.example` for a complete example with all available options.
+## ⚙️ Configuration
 
-### Minimal Config
+Everything works out of the box with sensible defaults. Customize by creating `~/.devboost.yaml`:
 
 ```yaml
 # ~/.devboost.yaml
-# Everything has sensible defaults, so this file is optional!
+# Everything has defaults, so this file is optional!
 
 zsh:
   aliases:
@@ -180,53 +237,6 @@ zsh:
 tmux:
   enable: true
   settings:
-    mouse: true
-```
-
-### Full Config Example
-
-```yaml
-# ~/.devboost.yaml
-
-system:
-  tmux_control_mode: true
-  package_manager: auto
-
-packages:
-  base:
-    - zsh
-    - zoxide
-    - fzf
-    - ripgrep
-    - fd
-    - bat
-    - eza
-    - jq
-    - yq
-    - git-delta
-    - lazygit
-    - direnv
-    - mise
-    - atuin
-    - starship
-    - tmux
-
-zsh:
-  enable: true
-  history:
-    use_atuin: true
-  fzf:
-    enable: true
-  aliases:
-    enable: true
-
-prompt:
-  enable_starship: true
-
-tmux:
-  enable: true
-  settings:
-    base_index: 1
     mouse: true
 
 toolchains:
@@ -234,109 +244,90 @@ toolchains:
   globals:
     node: "lts"
     python: "3.12"
-    go: "1.23"
-    rust: "stable"
-    deno: "latest"
 ```
 
-## What Gets Installed
+See [`.devboost.yaml.example`](.devboost.yaml.example) for all available options.
 
-### Packages
-- **Shell**: zsh
-- **Navigation**: zoxide, fzf
-- **Search**: ripgrep, fd
-- **Viewers**: bat, eza
-- **Utilities**: jq, yq, git-delta, lazygit, dust, duf, procs
-- **Environment**: direnv, mise, atuin, starship
-- **Terminal**: tmux
+---
 
-### Shell Configuration
-- zsh with znap plugin manager
-- zsh-autosuggestions and zsh-syntax-highlighting plugins
-- Starship prompt (minimalist theme)
-- Modern aliases (ls → eza, cat → bat, etc.)
-- zoxide, fzf, and atuin integration
+## 🛡️ Safety & Philosophy
 
-### Tmux Configuration
-- TPM (Tmux Plugin Manager)
-- Plugins: resurrect, continuum, yank, logging
-- Sensible defaults (mouse support, large history, etc.)
+devboost is designed to be **completely non-destructive**:
 
-### Toolchains (via mise)
-- Node.js (LTS)
-- Python 3.12
-- Go 1.23
-- Rust (stable)
-- Deno (latest)
+- ✅ **Never modifies your files directly** — uses managed include files
+- ✅ **Automatic backups** — first-touch backups in `~/.devboost/backups/`
+- ✅ **Idempotent** — safe to run multiple times
+- ✅ **Preview mode** — use `plan` to see what would change
+- ✅ **Easy removal** — `uninstall` removes all managed files
 
-### Other
-- direnv with mise integration
-- git-delta for better diffs
-- Atuin for shell history sync
+### File Layout
 
-## File Layout
+```
+~/.zshrc                    → Contains include block (you control this)
+~/.zshrc.devboost          → Fully managed by devboost
+~/.config/starship.toml    → Managed (backed up first)
+~/.tmux.conf               → Contains managed block between markers
+~/.devboost/backups/       → Automatic backups
+```
 
-devboost **never modifies your custom files directly**. Instead, it creates managed companion files:
+---
 
-- `~/.zshrc` → Contains include block that sources `~/.zshrc.devboost`
-- `~/.zshrc.devboost` → Fully managed by devboost (replaced on apply)
-- `~/.config/starship.toml` → Managed (backed up first)
-- `~/.tmux.conf` → Contains managed block between markers
-- `~/.devboost.state.json` → State tracking for idempotency
-- `~/.devboost/backups/` → Backups of modified files
+## 📸 Screenshots
 
-## Safety
+> **Note**: Screenshots coming soon! We'd love contributions showing devboost in action.
 
-- All writes are confined to **managed include files** or **managed blocks** between markers
-- First-touch backups in `~/.devboost/backups/<timestamp>/`
-- `plan` mode shows the diff of would-be changes
-- `state.json` records versions/commit of templates for drift detection
-- Idempotent: safe to run multiple times
+Want to contribute a screenshot? Show off:
+- Your terminal with starship prompt
+- Aliases in action (`ls`, `cat`, etc.)
+- tmux session with multiple panes
+- Toolchain management with mise
 
-## Requirements
+---
+
+## 🧪 Testing
+
+This project has been tested on:
+- ✅ macOS (with Podman for Linux testing)
+- ✅ Ubuntu/Debian (via Docker/Podman)
+- ✅ Fedora (via Docker/Podman)
+- ⚠️ Arch Linux (skipped on ARM64 due to image limitations)
+
+The test suite automatically uses Docker or Podman (installing Podman if needed). See [tests/README.md](tests/README.md) for details.
+
+---
+
+## 📋 Requirements
 
 - bash 4.0+
 - git
 - curl
 - sudo (for package installation on Linux)
-- yq or python3 with PyYAML (for YAML parsing, optional - falls back to basic parser)
+- yq or python3 with PyYAML (optional — falls back to basic parser)
 
-## Supported Operating Systems
+### Supported Operating Systems
 
-- **macOS**: Uses Homebrew (installed automatically if missing)
-- **Debian/Ubuntu**: Uses apt
-- **Fedora**: Uses dnf
-- **Arch Linux**: Uses pacman
+- **macOS** - Uses Homebrew (installed automatically if missing)
+- **Debian/Ubuntu** - Uses apt
+- **Fedora** - Uses dnf
+- **Arch Linux** - Uses pacman
 
-## Versioning
+---
 
-devboost follows **Semantic Versioning** with OS/tooling-specific adjustments:
-
-- **MAJOR**: Breaking changes (config schema changes, removed features)
-- **MINOR**: New features, backwards compatible
-- **PATCH**: Bug fixes, backwards compatible
-
-**Upgrade Safety:**
-- PATCH and MINOR versions: Always safe to upgrade
-- MAJOR versions: Review changelog for breaking changes
-
-The script will warn if your config file is from an older MAJOR version, but won't block execution.
-
-## Troubleshooting
-
-### YAML Parsing Issues
-
-If you encounter YAML parsing errors, install `yq`:
-- macOS: `brew install yq`
-- Linux: See [yq installation](https://github.com/mikefarah/yq#install)
-
-Alternatively, Python 3 with PyYAML works as a fallback.
+## 🐛 Troubleshooting
 
 ### Package Installation Failures
 
-Some packages may not be available in all package managers. The script will show error output if installation fails, allowing you to diagnose the issue. You can install missing packages manually or add them to your config's `packages.optional` list.
+Package installation output is suppressed for cleaner logs. If a package fails to install, the full error output will be displayed to help you troubleshoot.
 
-**Note**: Package installation output is suppressed for cleaner logs. If a package fails to install, the full error output will be displayed to help you troubleshoot.
+Some packages may not be available in all package managers. You can install missing packages manually or add them to your config's `packages.optional` list.
+
+### YAML Parsing Issues
+
+Install `yq` for better YAML parsing:
+- macOS: `brew install yq`
+- Linux: See [yq installation](https://github.com/mikefarah/yq#install)
+
+Python 3 with PyYAML works as a fallback.
 
 ### Tmux Plugins Not Installing
 
@@ -344,30 +335,52 @@ If using iTerm2 control mode, plugins install automatically via CLI. In normal t
 
 ### Zoxide Errors
 
-If you see `command not found: __zoxide_pwd`, ensure zoxide is installed and the `.zshrc.devboost` file was generated correctly. Run `devboost apply` again to regenerate.
+If you see `command not found: __zoxide_pwd`, ensure zoxide is installed and run `devboost apply` again to regenerate the config.
 
-## Contributing
+---
 
-Contributions are very welcome! This project has been tested on macOS and Linux (Ubuntu, Debian, Fedora). Pull requests are encouraged for:
+## 🤝 Contributing
+
+Contributions are very welcome! This project has been tested on macOS and Linux. Pull requests are encouraged for:
 
 - Testing on additional Linux distributions
 - Bug fixes and improvements
 - New modules
 - Documentation improvements
+- Screenshots and visual examples
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines, including:
-- How to get started
-- Testing requirements (all code must be tested!)
-- Code quality standards
-- How to add new modules (it's super easy!)
-- Commit message style (CBEAMS)
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
-See [AGENTS.md](AGENTS.md) for development guidelines and best practices.
+---
 
-## License
+## 📄 License
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
-## Changelog
+---
 
-See [CHANGELOG.md](CHANGELOG.md) for a detailed list of changes.
+## 📚 Additional Resources
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Technical design documentation
+- [AGENTS.md](AGENTS.md) - Development guidelines
+- [CHANGELOG.md](CHANGELOG.md) - Version history
+
+---
+
+## 🎯 Versioning
+
+devboost follows **Semantic Versioning**:
+
+- **PATCH** (1.1.0 → 1.1.1): Bug fixes, safe to upgrade
+- **MINOR** (1.1.0 → 1.2.0): New features, safe to upgrade
+- **MAJOR** (1.1.0 → 2.0.0): Breaking changes, review changelog
+
+The script will warn if your config file is from an older MAJOR version.
+
+---
+
+**Ready to boost your development environment?** 🚀
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/devboost.sh | bash -s -- apply
+```
