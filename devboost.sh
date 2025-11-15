@@ -1326,6 +1326,11 @@ db_load_modules() {
 
 # === Main Execution ===
 # Run main if script is executed directly
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+# Use ${BASH_SOURCE[0]:-} to handle unbound variable (when piped from stdin)
+# When piped: BASH_SOURCE[0] is unbound/empty, $0 is usually "-bash" or starts with "-"
+# When executed directly: BASH_SOURCE[0] == $0
+# When sourced: BASH_SOURCE[0] != $0 (and we don't want to run)
+_bash_source="${BASH_SOURCE[0]:-}"
+if [[ "$_bash_source" == "${0}" ]] || [[ -z "$_bash_source" ]]; then
     coreMain "$@"
 fi
