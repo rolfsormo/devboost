@@ -354,19 +354,32 @@ db_remove_block() {
 
 
 # Module registry system
+# Uses bash 3.x compatible approach (no associative arrays)
 
 DB_MODULE_NAMES=()
-declare -A DB_MODULE_PLAN_FUNC
-declare -A DB_MODULE_APPLY_FUNC
-declare -A DB_MODULE_DOCTOR_FUNC
+
+# Helper functions for bash 3.x compatibility (simulating associative arrays)
+_db_module_set() {
+    local var="$1" key="$2" value="$3"
+    # Sanitize key to be a valid variable name
+    key=$(echo "$key" | tr -cd '[:alnum:]_')
+    eval "${var}_${key}=\"\$value\""
+}
+
+_db_module_get() {
+    local var="$1" key="$2"
+    # Sanitize key to be a valid variable name
+    key=$(echo "$key" | tr -cd '[:alnum:]_')
+    eval "echo \"\${${var}_${key}:-}\""
+}
 
 db_register_module() {
     local name="$1" plan="$2" apply="$3" doctor="${4:-}"
     DB_MODULE_NAMES+=("$name")
-    DB_MODULE_PLAN_FUNC["$name"]="$plan"
-    DB_MODULE_APPLY_FUNC["$name"]="$apply"
+    _db_module_set "DB_MODULE_PLAN_FUNC" "$name" "$plan"
+    _db_module_set "DB_MODULE_APPLY_FUNC" "$name" "$apply"
     if [[ -n "$doctor" ]]; then
-        DB_MODULE_DOCTOR_FUNC["$name"]="$doctor"
+        _db_module_set "DB_MODULE_DOCTOR_FUNC" "$name" "$doctor"
     fi
     db_log_verbose "Registered module: $name"
 }
@@ -377,7 +390,8 @@ db_run_plan() {
     db_log_info "Planning changes..."
     for m in "${DB_MODULE_NAMES[@]}"; do
         db_log_verbose "Planning module: $m"
-        "${DB_MODULE_PLAN_FUNC[$m]}" || true
+        local func=$(_db_module_get "DB_MODULE_PLAN_FUNC" "$m")
+        [[ -n "$func" ]] && "$func" || true
     done
 }
 
@@ -385,16 +399,18 @@ db_run_apply() {
     db_log_info "Applying configuration..."
     for m in "${DB_MODULE_NAMES[@]}"; do
         db_log_verbose "Applying module: $m"
-        "${DB_MODULE_APPLY_FUNC[$m]}" || true
+        local func=$(_db_module_get "DB_MODULE_APPLY_FUNC" "$m")
+        [[ -n "$func" ]] && "$func" || true
     done
 }
 
 db_run_doctor() {
     db_log_info "Running diagnostics..."
     for m in "${DB_MODULE_NAMES[@]}"; do
-        if [[ -n "${DB_MODULE_DOCTOR_FUNC[$m]:-}" ]]; then
+        local func=$(_db_module_get "DB_MODULE_DOCTOR_FUNC" "$m")
+        if [[ -n "$func" ]]; then
             db_log_verbose "Checking module: $m"
-            "${DB_MODULE_DOCTOR_FUNC[$m]}" || true
+            "$func" || true
         fi
     done
 }
@@ -600,96 +616,113 @@ db_module_pkg_plan() {
     fi
 }
 
+# Helper function to map package names (bash 3.x compatible)
+_db_pkg_map() {
+    local os="$1" pkg="$2"
+    case "$os" in
+        darwin)
+            case "$pkg" in
+                zsh) echo "zsh" ;;
+                zoxide) echo "zoxide" ;;
+                fzf) echo "fzf" ;;
+                ripgrep) echo "ripgrep" ;;
+                fd) echo "fd" ;;
+                bat) echo "bat" ;;
+                eza) echo "eza" ;;
+                jq) echo "jq" ;;
+                yq) echo "yq" ;;
+                git-delta) echo "git-delta" ;;
+                lazygit) echo "lazygit" ;;
+                direnv) echo "direnv" ;;
+                mise) echo "mise" ;;
+                atuin) echo "atuin" ;;
+                starship) echo "starship" ;;
+                tmux) echo "tmux" ;;
+                dust) echo "dust" ;;
+                duf) echo "duf" ;;
+                procs) echo "procs" ;;
+                *) echo "$pkg" ;;
+            esac
+            ;;
+        linux-ubuntu)
+            case "$pkg" in
+                zsh) echo "zsh" ;;
+                zoxide) echo "zoxide" ;;
+                fzf) echo "fzf" ;;
+                ripgrep) echo "ripgrep" ;;
+                fd) echo "fd-find" ;;
+                bat) echo "bat" ;;
+                eza) echo "eza" ;;
+                jq) echo "jq" ;;
+                yq) echo "yq" ;;
+                git-delta) echo "git-delta" ;;
+                lazygit) echo "lazygit" ;;
+                direnv) echo "direnv" ;;
+                mise) echo "mise" ;;
+                atuin) echo "atuin" ;;
+                starship) echo "starship" ;;
+                tmux) echo "tmux" ;;
+                dust) echo "dust" ;;
+                duf) echo "duf" ;;
+                procs) echo "procs" ;;
+                *) echo "$pkg" ;;
+            esac
+            ;;
+        linux-fedora)
+            case "$pkg" in
+                zsh) echo "zsh" ;;
+                zoxide) echo "zoxide" ;;
+                fzf) echo "fzf" ;;
+                ripgrep) echo "ripgrep" ;;
+                fd) echo "fd-find" ;;
+                bat) echo "bat" ;;
+                eza) echo "eza" ;;
+                jq) echo "jq" ;;
+                yq) echo "yq" ;;
+                git-delta) echo "git-delta" ;;
+                lazygit) echo "lazygit" ;;
+                direnv) echo "direnv" ;;
+                mise) echo "mise" ;;
+                atuin) echo "atuin" ;;
+                starship) echo "starship" ;;
+                tmux) echo "tmux" ;;
+                dust) echo "dust" ;;
+                duf) echo "duf" ;;
+                procs) echo "procs" ;;
+                *) echo "$pkg" ;;
+            esac
+            ;;
+        linux-arch)
+            case "$pkg" in
+                zsh) echo "zsh" ;;
+                zoxide) echo "zoxide" ;;
+                fzf) echo "fzf" ;;
+                ripgrep) echo "ripgrep" ;;
+                fd) echo "fd" ;;
+                bat) echo "bat" ;;
+                eza) echo "eza" ;;
+                jq) echo "jq" ;;
+                yq) echo "yq" ;;
+                git-delta) echo "git-delta" ;;
+                lazygit) echo "lazygit" ;;
+                direnv) echo "direnv" ;;
+                mise) echo "mise" ;;
+                atuin) echo "atuin" ;;
+                starship) echo "starship" ;;
+                tmux) echo "tmux" ;;
+                dust) echo "dust" ;;
+                duf) echo "duf" ;;
+                procs) echo "procs" ;;
+                *) echo "$pkg" ;;
+            esac
+            ;;
+        *)
+            echo "$pkg"
+            ;;
+    esac
+}
+
 db_module_pkg_apply() {
-    # Map package names to OS-specific names
-    declare -A pkg_map_darwin=(
-        [zsh]="zsh"
-        [zoxide]="zoxide"
-        [fzf]="fzf"
-        [ripgrep]="ripgrep"
-        [fd]="fd"
-        [bat]="bat"
-        [eza]="eza"
-        [jq]="jq"
-        [yq]="yq"
-        [git-delta]="git-delta"
-        [lazygit]="lazygit"
-        [direnv]="direnv"
-        [mise]="mise"
-        [atuin]="atuin"
-        [starship]="starship"
-        [tmux]="tmux"
-        [dust]="dust"
-        [duf]="duf"
-        [procs]="procs"
-    )
-    
-    declare -A pkg_map_ubuntu=(
-        [zsh]="zsh"
-        [zoxide]="zoxide"
-        [fzf]="fzf"
-        [ripgrep]="ripgrep"
-        [fd]="fd-find"
-        [bat]="bat"
-        [eza]="eza"
-        [jq]="jq"
-        [yq]="yq"
-        [git-delta]="git-delta"
-        [lazygit]="lazygit"
-        [direnv]="direnv"
-        [mise]="mise"
-        [atuin]="atuin"
-        [starship]="starship"
-        [tmux]="tmux"
-        [dust]="dust"
-        [duf]="duf"
-        [procs]="procs"
-    )
-    
-    declare -A pkg_map_fedora=(
-        [zsh]="zsh"
-        [zoxide]="zoxide"
-        [fzf]="fzf"
-        [ripgrep]="ripgrep"
-        [fd]="fd-find"
-        [bat]="bat"
-        [eza]="eza"
-        [jq]="jq"
-        [yq]="yq"
-        [git-delta]="git-delta"
-        [lazygit]="lazygit"
-        [direnv]="direnv"
-        [mise]="mise"
-        [atuin]="atuin"
-        [starship]="starship"
-        [tmux]="tmux"
-        [dust]="dust"
-        [duf]="duf"
-        [procs]="procs"
-    )
-    
-    declare -A pkg_map_arch=(
-        [zsh]="zsh"
-        [zoxide]="zoxide"
-        [fzf]="fzf"
-        [ripgrep]="ripgrep"
-        [fd]="fd"
-        [bat]="bat"
-        [eza]="eza"
-        [jq]="jq"
-        [yq]="yq"
-        [git-delta]="git-delta"
-        [lazygit]="lazygit"
-        [direnv]="direnv"
-        [mise]="mise"
-        [atuin]="atuin"
-        [starship]="starship"
-        [tmux]="tmux"
-        [dust]="dust"
-        [duf]="duf"
-        [procs]="procs"
-    )
-    
     # Get base packages from config
     local base_pkgs_str=$(db_yaml_get_list '.packages.base[]')
     if [[ -z "$base_pkgs_str" ]]; then
@@ -702,28 +735,9 @@ db_module_pkg_apply() {
     
     # Map packages based on OS
     local mapped_pkgs=()
-    case "$DB_OS" in
-        darwin)
-            for pkg in "${base_pkgs[@]}"; do
-                mapped_pkgs+=("${pkg_map_darwin[$pkg]:-$pkg}")
-            done
-            ;;
-        linux-ubuntu)
-            for pkg in "${base_pkgs[@]}"; do
-                mapped_pkgs+=("${pkg_map_ubuntu[$pkg]:-$pkg}")
-            done
-            ;;
-        linux-fedora)
-            for pkg in "${base_pkgs[@]}"; do
-                mapped_pkgs+=("${pkg_map_fedora[$pkg]:-$pkg}")
-            done
-            ;;
-        linux-arch)
-            for pkg in "${base_pkgs[@]}"; do
-                mapped_pkgs+=("${pkg_map_arch[$pkg]:-$pkg}")
-            done
-            ;;
-    esac
+    for pkg in "${base_pkgs[@]}"; do
+        mapped_pkgs+=("$(_db_pkg_map "$DB_OS" "$pkg")")
+    done
     
     db_install_packages "${mapped_pkgs[@]}"
 }

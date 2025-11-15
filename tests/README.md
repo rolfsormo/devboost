@@ -4,6 +4,28 @@ This directory contains test scripts and Docker configurations for testing devbo
 
 ## Quick Start
 
+### Run All Tests
+
+```bash
+./tests/run-tests.sh
+```
+
+This builds the script and runs all available tests.
+
+### Run Specific Tests
+
+```bash
+# Bash 3.x compatibility tests
+./tests/run-tests.sh test-bash3-compat.sh
+
+# Bash 3.x runtime tests
+./tests/run-tests.sh test-bash3-runtime.sh
+
+# Or run directly
+./tests/test-bash3-compat.sh
+./tests/test-bash3-runtime.sh
+```
+
 ### Test on macOS (Sandboxed)
 
 ```bash
@@ -51,6 +73,11 @@ Test on all distributions:
 - ✅ Doctor mode (`devboost doctor`)
 - ✅ Script syntax validation
 - ✅ Config file parsing
+
+### Compatibility Tests
+- ✅ Bash 3.x compatibility (no associative arrays)
+- ✅ Bash 3.x runtime tests (script runs with bash 3.2+)
+- ✅ No bash 4+ features (mapfile, readarray, case conversion, etc.)
 
 ### Platform-Specific Tests
 - ✅ Ubuntu/Debian (apt package manager)
@@ -161,12 +188,39 @@ These test scripts are designed to be run in CI/CD pipelines:
 - The test uses a temporary directory, so it shouldn't conflict
 - If you see issues, check that `$TEST_HOME` is actually temporary
 
+## Test Framework
+
+The test framework (`test_common.sh`) provides:
+
+- **Assertion functions**: `test_assert`, `test_assert_eq`, `test_assert_ne`, `test_assert_contains`, `test_assert_not_contains`, `test_assert_exit_code`
+- **Test suite functions**: `test_suite_start`, `test_suite_end`
+- **Utility functions**: `test_get_bash_version`, `test_is_bash3`, `test_find_bash3`
+
+Example test:
+
+```bash
+#!/usr/bin/env bash
+source tests/test_common.sh
+
+test_suite_start "My Test Suite"
+
+test_assert "Something is true" "[[ 1 -eq 1 ]]"
+test_assert_eq "Values match" "expected" "actual"
+test_assert_contains "Output contains text" "$output" "expected text"
+
+test_suite_end
+```
+
 ## Adding New Tests
 
 To add a new test:
 
-1. Add test logic to `test-linux.sh` or `test-macos.sh`
-2. Update this README with the new test
-3. Ensure tests are idempotent (can run multiple times)
-4. Document any new requirements
+1. Create a new test file: `tests/test-<name>.sh`
+2. Source `test_common.sh` for assertion functions
+3. Use `test_suite_start` and `test_suite_end` for output formatting
+4. Add test logic using assertion functions
+5. Make the script executable: `chmod +x tests/test-<name>.sh`
+6. Update this README with the new test
+7. Ensure tests are idempotent (can run multiple times)
+8. Document any new requirements
 
