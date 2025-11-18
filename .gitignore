@@ -21,6 +21,8 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Test files
-test-*
+# Test files (but allow test scripts)
+test-*.tmp
+test-*.log
+test-*.out
 
