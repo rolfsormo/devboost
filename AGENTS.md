@@ -104,6 +104,9 @@ db_module_foo_register
 - **Use core helpers**: `db_write_file`, `db_upsert_block`, `db_backup_file`, `db_ensure_dir`
 - **Respect dry-run**: Check `DB_DRY_RUN` before making changes
 - **Provide defaults**: All config values should have sensible defaults
+  - **Research before defaulting**: Before choosing a default value, always research developer community preferences and best practices on the internet
+  - **Justify defaults**: Defaults should be chosen based on what works best for developers, not just what the tool's default is
+  - **Document reasoning**: When a default differs from the tool's default, document why in code comments
 - **Idempotent operations**: Check if something exists before creating it
 - **Use config system**: `db_yaml_get` for all configuration
 - **Log appropriately**: Use `db_log_info`, `db_log_success`, `db_log_warn`, `db_log_error`
