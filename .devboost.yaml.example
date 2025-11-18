@@ -39,6 +39,12 @@ zsh:
   include_file: ~/.zshrc.devboost # devboost-managed; sourced from user's ~/.zshrc
   history:
     use_atuin: true
+    atuin:
+      # Filter mode controls how command history is shared between shells
+      # Options: global (all shells), host (same machine), session (isolated),
+      #          directory (same folder), workspace (same git repo)
+      # Default: directory - context-specific history preferred by developers
+      filter_mode: directory
   fzf:
     enable: true
     default_command_files: "fd --type f --hidden --follow --exclude .git"
