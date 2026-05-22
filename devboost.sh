@@ -340,7 +340,8 @@ db_confirm() {
     local reply
     read -r -p "$(echo -e "${YELLOW}?${NC} ${prompt} ${hint} ")" reply
     reply="${reply:-$default}"
-    [[ "${reply,,}" == "y" ]]
+    reply=$(echo "$reply" | tr '[:upper:]' '[:lower:]')
+    [[ "$reply" == "y" ]]
 }
 
 db_remove_block() {
