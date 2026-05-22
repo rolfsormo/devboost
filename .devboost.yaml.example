@@ -123,3 +123,9 @@ aesthetics:
   lsc_colours: "ExFxCxDxBxegedabagacad"
   clicolor: true
 
+security:
+  # enable: true adds a 'devboost-check' shell alias that summarises outdated packages
+  # and toolchains. The doctor command warns when toolchains are set to 'latest' or when
+  # the Homebrew index is stale. Nothing auto-updates — you stay in control.
+  enable: true
+

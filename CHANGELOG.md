@@ -9,6 +9,7 @@ with OS/tooling-specific adjustments.
 ## [Unreleased]
 
 ### Added
+- Security hygiene module (`security`): `devboost-check` alias summarises outdated brew/mise packages; doctor warns on stale Homebrew index, `latest`-pinned toolchains, and HTTP TPM remotes
 - Editor/terminal integration docs in README: Ghostty, Zed, VS Code auto-attach to named tmux session
 - Comprehensive test suite for macOS and Linux
 - Automated Podman installation and setup (macOS via Homebrew, Linux via system package managers)
