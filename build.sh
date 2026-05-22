@@ -44,7 +44,9 @@ OUT="devboost.sh"
     cat modules/module_git.sh
     echo ""
     cat modules/module_services.sh
-    
+    echo ""
+    cat modules/module_security.sh
+
     # Module registration (must be after all modules are defined)
     echo ""
     echo "# === Module Registration ==="
@@ -60,7 +62,8 @@ db_load_modules() {
     db_module_direnv_register
     db_module_git_register
     db_module_services_register
-    
+    db_module_security_register
+
     db_log_verbose "Loaded ${#DB_MODULE_NAMES[@]} modules"
 }
 REGEOF

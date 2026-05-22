@@ -3,8 +3,30 @@
 # Copy this to ~/.devboost.yaml and customize as needed
 
 system:
-  tmux_control_mode: true        # true if user runs iTerm2 with: tmux -CC new -As main
+  # auto_install_plugins: true installs TPM plugins immediately via CLI after writing tmux config.
+  # Set to false if you prefer to run prefix+I manually inside a tmux session.
+  auto_install_plugins: true
   package_manager: auto          # auto|brew|apt|dnf|pacman
+
+# Editor/terminal integration: configure how your terminal emulator and code editor
+# attach to the named tmux session so windows persist across restarts.
+#
+# Ghostty (~/.config/ghostty/config):
+#   command = /opt/homebrew/bin/tmux new-session -A -s main
+#
+# Zed (~/.config/zed/settings.json):
+#   "terminal": { "shell": { "program": "/opt/homebrew/bin/tmux",
+#                             "args": ["new-session", "-A", "-s", "main"] } }
+#
+# VS Code (settings.json):
+#   "terminal.integrated.defaultProfile.osx": "tmux",
+#   "terminal.integrated.profiles.osx": {
+#     "tmux": { "path": "/opt/homebrew/bin/tmux",
+#               "args": ["new-session", "-A", "-s", "main"] }
+#   }
+#
+# Use "-t main" instead of "-A -s main" for grouped sessions (independent focus,
+# shared windows) — both Zed and VS Code work well with this variant.
 
 packages:
   base:
@@ -80,8 +102,8 @@ toolchains:
   enable_mise: true
   globals:
     node: "lts"
-    python: "3.12"
-    go: "1.23"
+    python: "3.13"
+    go: "1.25"
     rust: "stable"
     deno: "latest"
 
@@ -100,4 +122,10 @@ git:
 aesthetics:
   lsc_colours: "ExFxCxDxBxegedabagacad"
   clicolor: true
+
+security:
+  # enable: true adds a 'devboost-check' shell alias that summarises outdated packages
+  # and toolchains. The doctor command warns when toolchains are set to 'latest' or when
+  # the Homebrew index is stale. Nothing auto-updates — you stay in control.
+  enable: true
 

@@ -9,6 +9,9 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$PROJECT_ROOT"
 
+# Prevent git from prompting for credentials or touching macOS Keychain during tests
+export GIT_TERMINAL_PROMPT=0
+
 # Colors
 if [[ -t 1 ]]; then
     BLUE='\033[0;34m'

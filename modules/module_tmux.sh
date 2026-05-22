@@ -94,14 +94,12 @@ db_module_tmux_apply() {
     
     # Install/update plugins (only if not dry-run and tmux is available)
     if [[ "${DB_DRY_RUN:-false}" != "true" ]] && db_command_exists tmux; then
-        local tmux_control=$(db_yaml_get '.system.tmux_control_mode' 'true')
-        if [[ "$tmux_control" == "true" ]]; then
-            # Use CLI mode
+        local auto_install=$(db_yaml_get '.system.auto_install_plugins' 'true')
+        if [[ "$auto_install" == "true" ]]; then
             db_log_info "Installing tmux plugins via CLI..."
             "$tpm_path/bindings/install_plugins" &>/dev/null || true
             "$tpm_path/bindings/update_plugins" all &>/dev/null || true
         else
-            # Normal mode - plugins will install on next tmux session
             db_log_info "Tmux plugins will install on next tmux session (run 'prefix + I' in tmux)"
         fi
     fi
