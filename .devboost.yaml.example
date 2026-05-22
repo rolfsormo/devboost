@@ -102,8 +102,8 @@ toolchains:
   enable_mise: true
   globals:
     node: "lts"
-    python: "3.12"
-    go: "1.23"
+    python: "3.13"
+    go: "1.25"
     rust: "stable"
     deno: "latest"
 

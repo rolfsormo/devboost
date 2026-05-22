@@ -111,8 +111,8 @@ devboost installs and configures a curated set of modern development tools. Here
 
 **Toolchains (via mise):**
 - **Node.js** (LTS)
-- **Python** (3.12)
-- **Go** (1.23)
+- **Python** (3.13)
+- **Go** (1.25)
 - **Rust** (stable)
 - **Deno** (latest)
 
@@ -231,7 +231,7 @@ toolchains:
   enable_mise: true
   globals:
     node: "lts"
-    python: "3.12"
+    python: "3.13"
 ```
 
 See [`.devboost.yaml.example`](.devboost.yaml.example) for all available options.

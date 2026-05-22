@@ -9,6 +9,7 @@ with OS/tooling-specific adjustments.
 ## [Unreleased]
 
 ### Added
+- Editor/terminal integration docs in README: Ghostty, Zed, VS Code auto-attach to named tmux session
 - Comprehensive test suite for macOS and Linux
 - Automated Podman installation and setup (macOS via Homebrew, Linux via system package managers)
 - Docker/Podman runtime detection with automatic fallback
@@ -17,6 +18,10 @@ with OS/tooling-specific adjustments.
 - Sandboxed macOS testing environment
 
 ### Changed
+- Default Python toolchain version: 3.12 → 3.13 (stable LTS, Oct 2024)
+- Default Go toolchain version: 1.23 → 1.25 (stable, released Aug 2025)
+- Ubuntu Docker test image: 22.04 → 24.04 (current LTS)
+- `system.tmux_control_mode` renamed to `system.auto_install_plugins` (same behaviour, clearer name)
 - Linux test script now supports both Docker and Podman
 - Test infrastructure automatically installs Podman if neither Docker nor Podman is available
 - Improved error messages and platform detection
