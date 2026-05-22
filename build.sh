@@ -39,6 +39,8 @@ OUT="devboost.sh"
     echo ""
     cat modules/module_mise.sh
     echo ""
+    cat modules/module_corepack.sh
+    echo ""
     cat modules/module_direnv.sh
     echo ""
     cat modules/module_git.sh
@@ -59,6 +61,7 @@ db_load_modules() {
     db_module_starship_register
     db_module_tmux_register
     db_module_mise_register
+    db_module_corepack_register
     db_module_direnv_register
     db_module_git_register
     db_module_services_register

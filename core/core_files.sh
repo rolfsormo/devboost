@@ -100,6 +100,21 @@ db_upsert_block() {
     fi
 }
 
+db_confirm() {
+    local prompt="$1"
+    local default="${2:-y}"
+    local hint
+    if [[ "$default" == "y" ]]; then
+        hint="[Y/n]"
+    else
+        hint="[y/N]"
+    fi
+    local reply
+    read -r -p "$(echo -e "${YELLOW}?${NC} ${prompt} ${hint} ")" reply
+    reply="${reply:-$default}"
+    [[ "${reply,,}" == "y" ]]
+}
+
 db_remove_block() {
     local file="$1"
     local start_marker="$2"
