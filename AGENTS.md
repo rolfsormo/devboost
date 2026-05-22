@@ -250,15 +250,21 @@ fi
 - ✅ Changes documented (README, CHANGELOG, or code comments as appropriate)
 
 **Complete Workflow for Changes:**
-1. Make your changes
-2. Write/update tests for the changes
-3. Run all tests and ensure they pass
-4. Build and verify: `./build.sh && bash -n devboost.sh`
-5. Update documentation (README, CHANGELOG, etc.)
-6. Bump version if needed (in `core/core_main.sh`)
-7. Rebuild: `./build.sh`
-8. Commit: version bump, code changes, tests, docs, and built `devboost.sh`
-9. Push to origin/main
+1. Create a feature branch: `git checkout -b feat/<short-description>`
+2. Make your changes in small, logical commits (see Commit Message Style)
+3. Write/update tests for the changes
+4. Run all tests and ensure they pass: `./tests/run-tests.sh`
+5. Build and verify: `./build.sh && bash -n devboost.sh`
+6. Update documentation (README, CHANGELOG, etc.)
+7. Bump version if needed (in `core/core_main.sh`) and rebuild: `./build.sh`
+8. Push the branch and open a PR against `main`
+9. PRs must pass all checks before merging — never push directly to `main`
+
+**Why PRs matter for a public repo:**
+- They create a reviewable record of intent and rationale
+- They keep `main` always in a releasable state
+- They allow external contributors to follow the same path as maintainers
+- Squash or rebase before merging to keep `git log` readable
 
 ### 6. Testing Requirements
 
