@@ -125,6 +125,50 @@ devboost installs and configures a curated set of modern development tools. Here
 - **[tmux-logging](https://github.com/tmux-plugins/tmux-logging)** - Logging capabilities
 - Sensible defaults (mouse support, large history, etc.)
 
+### 🔗 Editor & Terminal Integration
+
+Wire your terminal emulator and code editor to the devboost tmux session so every window auto-attaches and persists across restarts.
+
+The `-A` flag means "attach if the session exists, create it otherwise" — so every new window lands in the same session automatically.
+
+**Ghostty** (`~/.config/ghostty/config`):
+```
+command = /opt/homebrew/bin/tmux new-session -A -s main
+```
+
+**Zed** (`~/.config/zed/settings.json`):
+```json
+{
+  "terminal": {
+    "shell": {
+      "program": "/opt/homebrew/bin/tmux",
+      "args": ["new-session", "-A", "-s", "main"]
+    }
+  }
+}
+```
+
+**VS Code** (`settings.json`):
+```json
+{
+  "terminal.integrated.defaultProfile.osx": "tmux",
+  "terminal.integrated.profiles.osx": {
+    "tmux": {
+      "path": "/opt/homebrew/bin/tmux",
+      "args": ["new-session", "-A", "-s", "main"]
+    }
+  }
+}
+```
+
+**Tip — grouped sessions:** If you want Zed/VS Code terminals to share windows but track focus independently (no mirroring), use `-t main` instead:
+```json
+"args": ["new-session", "-t", "main"]
+```
+This creates a grouped session — you'll see `main` and `main-1` in `tmux ls`, but all windows are shared.
+
+On Linux, replace `/opt/homebrew/bin/tmux` with the output of `which tmux`.
+
 ---
 
 ## 💻 Usage
@@ -275,7 +319,7 @@ Python 3 with PyYAML works as a fallback.
 
 ### Tmux Plugins Not Installing
 
-If using iTerm2 control mode, plugins install automatically via CLI. In normal tmux mode, run `prefix + I` in a tmux session to install plugins.
+By default, devboost installs plugins automatically via the TPM CLI after writing the config. If you set `system.auto_install_plugins: false`, run `prefix + I` inside a running tmux session instead.
 
 ### Zoxide Errors
 
