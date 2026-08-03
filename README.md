@@ -183,6 +183,7 @@ devboost [COMMAND] [OPTIONS]
 - **`plan`** - Preview what would change (dry-run)
 - **`doctor`** - Check system health and prerequisites
 - **`uninstall`** - Remove devboost-managed files
+- **`migrate-from-oh-my-zsh`** - Recover `.zshrc` customizations after running oh-my-zsh's `uninstall_oh_my_zsh`
 
 ### Options
 
@@ -206,6 +207,9 @@ devboost doctor
 
 # Use custom config
 devboost apply --config ~/my-config.yaml
+
+# After running oh-my-zsh's uninstall_oh_my_zsh, recover your customizations
+devboost migrate-from-oh-my-zsh
 ```
 
 ---
@@ -231,7 +235,7 @@ toolchains:
   enable_mise: true
   globals:
     node: "lts"
-    python: "3.13"
+    python: "3.14"
 ```
 
 See [`.devboost.yaml.example`](.devboost.yaml.example) for all available options.
@@ -324,6 +328,28 @@ By default, devboost installs plugins automatically via the TPM CLI after writin
 ### Zoxide Errors
 
 If you see `command not found: __zoxide_pwd`, ensure zoxide is installed and run `devboost apply` again to regenerate the config.
+
+### Already Using oh-my-zsh?
+
+devboost provides its own plugin manager ([znap](https://github.com/marlonrichert/zsh-snap)), prompt ([starship](https://github.com/starship/starship)), and curated plugin set (autosuggestions, syntax highlighting). Running oh-my-zsh alongside devboost is redundant and can slow shell startup or cause conflicting keybindings/completions.
+
+`devboost doctor` will warn if it detects `~/.oh-my-zsh`. To remove it, use oh-my-zsh's own uninstaller (open a new shell first so it's loaded):
+
+```bash
+uninstall_oh_my_zsh
+```
+
+This removes `~/.oh-my-zsh` and restores your pre-oh-my-zsh `.zshrc` (from the backup oh-my-zsh made at install time), so devboost's setup works immediately afterward — no manual cleanup needed in the common case.
+
+**One caveat**: if you customized `.zshrc` *after* installing oh-my-zsh (added aliases, `PATH` changes, etc.), those edits are not restored — the uninstaller only brings back the original pre-install file. Your customized version is saved to a timestamped `~/.zshrc.omz-uninstalled-*` backup.
+
+To recover those customizations automatically:
+
+```bash
+devboost migrate-from-oh-my-zsh
+```
+
+This 3-way merges your `~/.zshrc.omz-uninstalled-*` backup against the restored `.zshrc`, using your original pre-oh-my-zsh file as the merge base. oh-my-zsh's own template lines (`ZSH_THEME`, `plugins=(...)`, etc.) are stripped out; your genuine additions are merged back in. Non-conflicting changes merge automatically; anything ambiguous is left with `<<<<<<<` conflict markers in `.zshrc` for you to resolve by hand. Your pre-merge file is backed up first (see [File Layout](#file-layout)), and `--dry-run` shows what would happen without writing anything.
 
 ---
 

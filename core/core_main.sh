@@ -10,7 +10,7 @@ DB_STATE_FILE="${HOME}/.devboost.state.json"
 db_parse_flags() {
     while [[ $# -gt 0 ]]; do
         case $1 in
-            apply|plan|doctor|uninstall)
+            apply|plan|doctor|uninstall|migrate-from-oh-my-zsh)
                 DB_SUBCOMMAND="$1"
                 shift
                 ;;
@@ -50,10 +50,11 @@ devboost - Bootstrap a modern dev environment
 Usage: devboost [COMMAND] [OPTIONS]
 
 Commands:
-  apply      Converge machine to config (default)
-  plan       Show actions without changing anything
-  doctor     Check prerequisites, PATHs, shells, conflicting files
-  uninstall  Remove managed files/blocks (leaves user custom files untouched)
+  apply                     Converge machine to config (default)
+  plan                      Show actions without changing anything
+  doctor                    Check prerequisites, PATHs, shells, conflicting files
+  uninstall                 Remove managed files/blocks (leaves user custom files untouched)
+  migrate-from-oh-my-zsh    Recover .zshrc customizations after 'uninstall_oh_my_zsh'
 
 Options:
   --config FILE    Config file path (default: ~/.devboost.yaml)
@@ -68,7 +69,7 @@ EOF
 coreMain() {
     # Parse command first (before flags)
     local cmd="apply"
-    if [[ $# -gt 0 ]] && [[ "$1" =~ ^(apply|plan|doctor|uninstall)$ ]]; then
+    if [[ $# -gt 0 ]] && [[ "$1" =~ ^(apply|plan|doctor|uninstall|migrate-from-oh-my-zsh)$ ]]; then
         cmd="$1"
         shift
     fi
@@ -122,6 +123,9 @@ coreMain() {
             ;;
         uninstall)
             db_run_uninstall
+            ;;
+        migrate-from-oh-my-zsh)
+            db_run_migrate_from_oh_my_zsh
             ;;
         *)
             db_die "Unknown command: $DB_SUBCOMMAND"

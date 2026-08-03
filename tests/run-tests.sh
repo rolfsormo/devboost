@@ -9,8 +9,17 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$PROJECT_ROOT"
 
-# Prevent git from prompting for credentials or touching macOS Keychain during tests
+# Prevent git from prompting for credentials or touching macOS Keychain during tests.
+# GIT_TERMINAL_PROMPT stops terminal prompts; it does NOT stop the macOS Keychain GUI
+# dialog, which comes from credential.helper=osxkeychain in system-level gitconfig
+# (e.g. Homebrew's /opt/homebrew/etc/gitconfig) and fires even for anonymous HTTPS
+# clones. GIT_ASKPASS=true (a no-op that "succeeds" with no output) plus explicitly
+# unsetting credential.helper for these processes avoids it.
 export GIT_TERMINAL_PROMPT=0
+export GIT_ASKPASS=true
+export GIT_CONFIG_COUNT=1
+export GIT_CONFIG_KEY_0=credential.helper
+export GIT_CONFIG_VALUE_0=
 
 # Colors
 if [[ -t 1 ]]; then

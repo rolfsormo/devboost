@@ -8,7 +8,11 @@ with OS/tooling-specific adjustments.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-08-03
+
 ### Added
+- `devboost migrate-from-oh-my-zsh` command: after running oh-my-zsh's own `uninstall_oh_my_zsh` (which only restores the pre-install `.zshrc` and can lose later customizations), 3-way merges the timestamped `.zshrc.omz-uninstalled-*` backup back onto the restored `.zshrc` via `git merge-file`, stripping oh-my-zsh's own template lines first. Non-conflicting additions merge automatically; ambiguous ones get `<<<<<<<` conflict markers. Supports `--dry-run`.
+- Security/doctor check: warns if `~/.oh-my-zsh` is installed alongside devboost (redundant with znap+starship, can slow shell startup); README documents manual removal
 - Security hygiene module (`security`): `devboost-check` alias summarises outdated brew/mise packages; doctor warns on stale Homebrew index, `latest`-pinned toolchains, and HTTP TPM remotes
 - Editor/terminal integration docs in README: Ghostty, Zed, VS Code auto-attach to named tmux session
 - Comprehensive test suite for macOS and Linux
@@ -35,6 +39,7 @@ with OS/tooling-specific adjustments.
 - Test script compatibility with both Docker and Podman
 - Package installation output now suppressed (cleaner output, errors still shown on failure)
 - Missing packages for aliases (dust, duf, procs) now installed by default
+- Test suite no longer triggers macOS Keychain GUI prompts during `git clone` (znap/TPM/tmux plugins) — `run-tests.sh` now neutralizes `credential.helper` for test git processes
 - `tests/README.md` referenced a stale Ubuntu 22.04 image that no longer matched the Dockerfile
 - README incorrectly stated `bash 4.0+` as a requirement, contradicting the project's own bash 3.2 compatibility support (macOS ships 3.2 by default; the test suite specifically covers it)
 
@@ -96,6 +101,7 @@ with OS/tooling-specific adjustments.
 
 ---
 
-[Unreleased]: https://github.com/yourusername/devboost/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/yourusername/devboost/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/yourusername/devboost/compare/v1.0.0...v1.2.0
 [1.0.0]: https://github.com/yourusername/devboost/releases/tag/v1.0.0
 

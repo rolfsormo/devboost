@@ -106,12 +106,19 @@ db_module_security_doctor() {
     # immediately. 'lts' and 'stable' are safer because they track a vetted release stream.
     for key in node python go rust deno; do
         local ver=$(db_yaml_get ".toolchains.globals.${key}" '')
-        if [[ "$ver" == "latest" ]] && [[ "$key" != "deno" ]]; then
-            # Deno 'latest' is its conventional stable channel — skip that warning
+        if [[ "$ver" == "latest" ]]; then
             db_log_warn "security: toolchain '$key' is pinned to 'latest' — prefer a specific version or 'lts'/'stable' to avoid pulling unreviewed releases"
             found_issues=$((found_issues + 1))
         fi
     done
+
+    # Warn if oh-my-zsh is installed alongside devboost — it's redundant since devboost
+    # already provides a plugin manager (znap), prompt (starship), and curated plugins.
+    # Running both can cause slow shell startup and conflicting keybindings/completions.
+    if [[ -d "$HOME/.oh-my-zsh" ]]; then
+        db_log_warn "security: ~/.oh-my-zsh detected — this is redundant with devboost's znap+starship setup and can slow shell startup or conflict with it. Consider removing it (see README)."
+        found_issues=$((found_issues + 1))
+    fi
 
     # Check if TPM was cloned over HTTPS (not HTTP)
     local tpm_path=$(db_yaml_get '.tmux.tpm_path' "$HOME/.tmux/plugins/tpm")

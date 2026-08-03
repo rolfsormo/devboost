@@ -22,6 +22,7 @@ devboost/
     core_os.sh         # OS detection, package manager abstraction
     core_yaml.sh       # YAML config parsing (via yq)
     core_files.sh      # File operations (backup, write, block management)
+    core_omz.sh        # oh-my-zsh migration helper (git merge-file based)
     core_modules.sh    # Module registry system
     
   modules/             # Feature modules

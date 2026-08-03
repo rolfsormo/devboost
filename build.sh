@@ -20,6 +20,8 @@ OUT="devboost.sh"
     echo ""
     cat core/core_files.sh
     echo ""
+    cat core/core_omz.sh
+    echo ""
     cat core/core_modules.sh
     echo ""
     cat core/core_main.sh
