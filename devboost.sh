@@ -434,7 +434,7 @@ db_run_doctor() {
 
 # Main entry point and CLI
 
-DB_VERSION="1.1.3"
+DB_VERSION="1.2.0"
 DB_SUBCOMMAND="apply"
 DB_DRY_RUN=false
 DB_VERBOSE=false
@@ -1230,10 +1230,10 @@ db_module_mise_apply() {
     db_log_info "Configuring mise toolchains..."
 
     local node=$(db_yaml_get '.toolchains.globals.node' 'lts')
-    local python=$(db_yaml_get '.toolchains.globals.python' '3.12')
-    local go=$(db_yaml_get '.toolchains.globals.go' '1.23')
+    local python=$(db_yaml_get '.toolchains.globals.python' '3.14')
+    local go=$(db_yaml_get '.toolchains.globals.go' '1.26')
     local rust=$(db_yaml_get '.toolchains.globals.rust' 'stable')
-    local deno=$(db_yaml_get '.toolchains.globals.deno' 'latest')
+    local deno=$(db_yaml_get '.toolchains.globals.deno' 'lts')
 
     if [[ "${DB_DRY_RUN:-false}" == "true" ]]; then
         db_log_info "Would run: mise use -g node@${node} python@${python} go@${go} rust@${rust} deno@${deno}"

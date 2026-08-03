@@ -102,10 +102,10 @@ toolchains:
   enable_mise: true
   globals:
     node: "lts"
-    python: "3.13"
-    go: "1.25"
+    python: "3.14"
+    go: "1.26"
     rust: "stable"
-    deno: "latest"
+    deno: "lts"
 
 direnv:
   enable: true

@@ -19,9 +19,11 @@ with OS/tooling-specific adjustments.
 - Sandboxed macOS testing environment
 
 ### Changed
-- Default Python toolchain version: 3.12 → 3.13 (stable LTS, Oct 2024)
-- Default Go toolchain version: 1.23 → 1.25 (stable, released Aug 2025)
-- Ubuntu Docker test image: 22.04 → 24.04 (current LTS)
+- Default Python toolchain version: 3.12 → 3.14 (current stable)
+- Default Go toolchain version: 1.23 → 1.26 (current stable)
+- Default Deno toolchain channel: `latest` → `lts` (Deno now ships a maintained LTS channel; matches devboost's stable-not-bleeding-edge philosophy). Removed the `latest`-pin doctor warning's deno exemption, since deno no longer defaults to `latest`.
+- Ubuntu Docker test image: 22.04 → 26.04 (current LTS)
+- Debian Docker test image: bookworm → trixie (current stable)
 - `system.tmux_control_mode` renamed to `system.auto_install_plugins` (same behaviour, clearer name)
 - Linux test script now supports both Docker and Podman
 - Test infrastructure automatically installs Podman if neither Docker nor Podman is available
@@ -33,6 +35,8 @@ with OS/tooling-specific adjustments.
 - Test script compatibility with both Docker and Podman
 - Package installation output now suppressed (cleaner output, errors still shown on failure)
 - Missing packages for aliases (dust, duf, procs) now installed by default
+- `tests/README.md` referenced a stale Ubuntu 22.04 image that no longer matched the Dockerfile
+- README incorrectly stated `bash 4.0+` as a requirement, contradicting the project's own bash 3.2 compatibility support (macOS ships 3.2 by default; the test suite specifically covers it)
 
 ## [1.0.0] - 2025-01-XX
 

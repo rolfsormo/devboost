@@ -111,10 +111,10 @@ devboost installs and configures a curated set of modern development tools. Here
 
 **Toolchains (via mise):**
 - **Node.js** (LTS)
-- **Python** (3.13)
-- **Go** (1.25)
+- **Python** (3.14)
+- **Go** (1.26)
 - **Rust** (stable)
-- **Deno** (latest)
+- **Deno** (LTS)
 
 ### 🎭 Tmux Configuration
 
@@ -286,7 +286,7 @@ The test suite automatically uses Docker or Podman (installing Podman if needed)
 
 ## 📋 Requirements
 
-- bash 4.0+
+- bash 3.2+ (macOS system bash works out of the box)
 - git
 - curl
 - sudo (for package installation on Linux)

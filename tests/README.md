@@ -88,8 +88,8 @@ Test on all distributions:
 ## Docker Images
 
 The Docker images are built from:
-- `Dockerfile.ubuntu` - Ubuntu 22.04
-- `Dockerfile.debian` - Debian Bookworm
+- `Dockerfile.ubuntu` - Ubuntu 26.04
+- `Dockerfile.debian` - Debian Trixie
 - `Dockerfile.fedora` - Fedora Latest
 - `Dockerfile.arch` - Arch Linux Latest
 
@@ -165,7 +165,7 @@ These test scripts are designed to be run in CI/CD pipelines:
 **Image build fails:**
 - Ensure Docker/Podman is running: `docker info` or `podman info`
 - Check disk space: `docker system df` or `podman system df`
-- Try pulling base images manually: `docker pull ubuntu:22.04` or `podman pull ubuntu:22.04`
+- Try pulling base images manually: `docker pull ubuntu:26.04` or `podman pull ubuntu:26.04`
 
 **Permission denied:**
 - For Docker: Ensure your user is in the docker group (Linux)
