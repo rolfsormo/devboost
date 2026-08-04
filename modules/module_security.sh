@@ -120,6 +120,20 @@ db_module_security_doctor() {
         found_issues=$((found_issues + 1))
     fi
 
+    # Warn if .zshrc sources .zshrc.devboost twice (devboost's own marked block,
+    # plus a leftover unmarked line from a prior manual edit or recovery). Doubles
+    # the cost of everything in .zshrc.devboost — znap, atuin, mise, aliases, etc.
+    # — on every shell start.
+    local zshrc="$HOME/.zshrc"
+    if [[ -f "$zshrc" ]]; then
+        local devboost_source_count
+        devboost_source_count=$(grep -c '\.zshrc\.devboost' "$zshrc" 2>/dev/null || echo 0)
+        if [[ "$devboost_source_count" -gt 1 ]]; then
+            db_log_warn "security: $zshrc sources .zshrc.devboost $devboost_source_count times — likely double-sourced, which doubles shell startup cost. Run: grep -n zshrc.devboost $zshrc"
+            found_issues=$((found_issues + 1))
+        fi
+    fi
+
     # Check if TPM was cloned over HTTPS (not HTTP)
     local tpm_path=$(db_yaml_get '.tmux.tpm_path' "$HOME/.tmux/plugins/tpm")
     if [[ -d "$tpm_path/.git" ]]; then

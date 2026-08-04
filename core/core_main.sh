@@ -1,9 +1,10 @@
 # Main entry point and CLI
 
-DB_VERSION="1.2.0"
+DB_VERSION="1.3.0"
 DB_SUBCOMMAND="apply"
 DB_DRY_RUN=false
 DB_VERBOSE=false
+DB_OMZ_YES=false
 DB_BACKUP_DIR="${HOME}/.devboost/backups"
 DB_STATE_FILE="${HOME}/.devboost.state.json"
 
@@ -20,6 +21,10 @@ db_parse_flags() {
                 ;;
             --dry-run)
                 DB_DRY_RUN=true
+                shift
+                ;;
+            --yes)
+                DB_OMZ_YES=true
                 shift
                 ;;
             --verbose|-v)
@@ -54,11 +59,12 @@ Commands:
   plan                      Show actions without changing anything
   doctor                    Check prerequisites, PATHs, shells, conflicting files
   uninstall                 Remove managed files/blocks (leaves user custom files untouched)
-  migrate-from-oh-my-zsh    Recover .zshrc customizations after 'uninstall_oh_my_zsh'
+  migrate-from-oh-my-zsh    Remove oh-my-zsh and recover .zshrc customizations (needs --yes)
 
 Options:
   --config FILE    Config file path (default: ~/.devboost.yaml)
   --dry-run        Show what would be done without making changes
+  --yes            Confirm a destructive command (required by migrate-from-oh-my-zsh)
   --verbose, -v    Enable verbose output
   --help, -h       Show this help message
   --version        Show version

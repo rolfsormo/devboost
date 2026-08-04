@@ -22,34 +22,60 @@ if [[ ! -f "$PROJECT_ROOT/devboost.sh" ]]; then
     exit 1
 fi
 
-# --- Test 1: no backup present -> graceful error, nothing written ---
+# --- Test 1: refuses without --yes, makes no changes ---
 TEST_HOME=$(mktemp -d)
+mkdir -p "$TEST_HOME/.oh-my-zsh"
+cat > "$TEST_HOME/.zshrc" << 'EOF'
+export ZSH="$HOME/.oh-my-zsh"
+source $ZSH/oh-my-zsh.sh
+export MY_VAR="test"
+EOF
 
 output=$(HOME="$TEST_HOME" "$PROJECT_ROOT/devboost.sh" migrate-from-oh-my-zsh 2>&1) && exit_code=0 || exit_code=$?
 
 test_assert_eq \
-    "No backup: exits non-zero" \
+    "No --yes: exits non-zero" \
     "1" \
     "$exit_code"
 
 test_assert_contains \
-    "No backup: explains what to run first" \
+    "No --yes: explains the flag is required" \
     "$output" \
-    "uninstall_oh_my_zsh"
+    "--yes"
+
+test_assert \
+    "No --yes: ~/.oh-my-zsh left untouched" \
+    "[[ -d $TEST_HOME/.oh-my-zsh ]]"
 
 rm -rf "$TEST_HOME"
 
-# --- Test 2: clean merge, no conflicts ---
+# --- Test 2: no ~/.oh-my-zsh and no backup present -> graceful error ---
 TEST_HOME=$(mktemp -d)
+
+output=$(HOME="$TEST_HOME" "$PROJECT_ROOT/devboost.sh" migrate-from-oh-my-zsh --yes 2>&1) && exit_code=0 || exit_code=$?
+
+test_assert_eq \
+    "Nothing to do: exits non-zero" \
+    "1" \
+    "$exit_code"
+
+test_assert_contains \
+    "Nothing to do: explains nothing was found" \
+    "$output" \
+    "nothing to recover"
+
+rm -rf "$TEST_HOME"
+
+# --- Test 3: full flow with pre-install base -> uninstall + recover additions ---
+TEST_HOME=$(mktemp -d)
+mkdir -p "$TEST_HOME/.oh-my-zsh"
 
 cat > "$TEST_HOME/.zshrc.pre-oh-my-zsh" << 'EOF'
 export PATH="$HOME/bin:$PATH"
 alias ll="ls -la"
 EOF
 
-cp "$TEST_HOME/.zshrc.pre-oh-my-zsh" "$TEST_HOME/.zshrc"
-
-cat > "$TEST_HOME/.zshrc.omz-uninstalled-20260101_120000" << 'EOF'
+cat > "$TEST_HOME/.zshrc" << 'EOF'
 export PATH="$HOME/bin:$PATH"
 alias ll="ls -la"
 
@@ -64,143 +90,157 @@ alias gs="git status"
 export MY_CUSTOM_VAR="hello"
 EOF
 
-output=$(HOME="$TEST_HOME" "$PROJECT_ROOT/devboost.sh" migrate-from-oh-my-zsh 2>&1) && exit_code=0 || exit_code=$?
+output=$(HOME="$TEST_HOME" "$PROJECT_ROOT/devboost.sh" migrate-from-oh-my-zsh --yes 2>&1) && exit_code=0 || exit_code=$?
 result=$(cat "$TEST_HOME/.zshrc")
 
 test_assert_eq \
-    "Clean merge: exits zero" \
+    "Full flow: exits zero" \
     "0" \
     "$exit_code"
 
+test_assert \
+    "Full flow: removes ~/.oh-my-zsh" \
+    "[[ ! -d $TEST_HOME/.oh-my-zsh ]]"
+
+test_assert \
+    "Full flow: consumes .zshrc.pre-oh-my-zsh" \
+    "[[ ! -f $TEST_HOME/.zshrc.pre-oh-my-zsh ]]"
+
 test_assert_contains \
-    "Clean merge: keeps base content" \
+    "Full flow: keeps base content" \
     "$result" \
     'alias ll="ls -la"'
 
 test_assert_contains \
-    "Clean merge: recovers user's post-install additions" \
+    "Full flow: recovers user's post-install additions" \
     "$result" \
     'export MY_CUSTOM_VAR="hello"'
 
 test_assert_contains \
-    "Clean merge: recovers user's post-install alias" \
+    "Full flow: recovers user's post-install alias" \
     "$result" \
     'alias gs="git status"'
 
 test_assert_not_contains \
-    "Clean merge: strips oh-my-zsh ZSH_THEME line" \
+    "Full flow: strips oh-my-zsh ZSH_THEME line" \
     "$result" \
     "ZSH_THEME"
 
 test_assert_not_contains \
-    "Clean merge: strips oh-my-zsh source line" \
+    "Full flow: strips oh-my-zsh source line" \
     "$result" \
     "source \$ZSH/oh-my-zsh.sh"
 
 test_assert_not_contains \
-    "Clean merge: strips oh-my-zsh plugins= line" \
+    "Full flow: strips oh-my-zsh plugins= line" \
     "$result" \
     "plugins=("
 
 rm -rf "$TEST_HOME"
 
-# --- Test 3: genuine conflict -> conflict markers, non-zero exit ---
+# --- Test 4: no pre-install base, and uninstall leaves no .zshrc to restore ---
+# (uninstall_oh_my_zsh renames .zshrc away with nothing to put back) ->
+# recover directly from the backup.
 TEST_HOME=$(mktemp -d)
+mkdir -p "$TEST_HOME/.oh-my-zsh"
 
-cat > "$TEST_HOME/.zshrc.pre-oh-my-zsh" << 'EOF'
-export PATH="$HOME/bin:$PATH"
-alias ll="ls -la"
-EOF
-
-# Current .zshrc diverges from base on the same line the "other" side also changed
 cat > "$TEST_HOME/.zshrc" << 'EOF'
-export PATH="$HOME/bin:/usr/local/go/bin:$PATH"
-alias ll="ls -la"
-EOF
-
-cat > "$TEST_HOME/.zshrc.omz-uninstalled-20260101_120000" << 'EOF'
-export PATH="$HOME/bin:$PATH:/opt/custom/bin"
-alias ll="ls -la"
-
 export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME="agnoster"
 plugins=(git)
 source $ZSH/oh-my-zsh.sh
 
+export EDITOR="nvim"
 alias gs="git status"
 EOF
 
-output=$(HOME="$TEST_HOME" "$PROJECT_ROOT/devboost.sh" migrate-from-oh-my-zsh 2>&1) && exit_code=0 || exit_code=$?
-result=$(cat "$TEST_HOME/.zshrc")
+output=$(HOME="$TEST_HOME" "$PROJECT_ROOT/devboost.sh" migrate-from-oh-my-zsh --yes 2>&1) && exit_code=0 || exit_code=$?
+result=$(cat "$TEST_HOME/.zshrc" 2>/dev/null || echo "")
 
 test_assert_eq \
-    "Conflict: exits non-zero" \
-    "1" \
+    "No base, no restore target: exits zero" \
+    "0" \
     "$exit_code"
 
 test_assert_contains \
-    "Conflict: leaves conflict markers in .zshrc" \
+    "No base, no restore target: recovers customizations" \
     "$result" \
-    "<<<<<<<"
+    'export EDITOR="nvim"'
 
-test_assert_contains \
-    "Conflict: still recovers non-conflicting addition" \
+test_assert_not_contains \
+    "No base, no restore target: strips oh-my-zsh boilerplate" \
     "$result" \
-    'alias gs="git status"'
+    "ZSH_THEME"
 
 rm -rf "$TEST_HOME"
 
-# --- Test 4: no pre-oh-my-zsh base -> graceful error, nothing overwritten ---
+# --- Test 5: nothing but oh-my-zsh's own template -> no false "recovered" claim ---
 TEST_HOME=$(mktemp -d)
-
-cat > "$TEST_HOME/.zshrc" << 'EOF'
-export PATH="$HOME/bin:$PATH"
-EOF
-
-cat > "$TEST_HOME/.zshrc.omz-uninstalled-20260101_120000" << 'EOF'
-export PATH="$HOME/bin:$PATH"
-export ZSH="$HOME/.oh-my-zsh"
-source $ZSH/oh-my-zsh.sh
-EOF
-
-before=$(cat "$TEST_HOME/.zshrc")
-output=$(HOME="$TEST_HOME" "$PROJECT_ROOT/devboost.sh" migrate-from-oh-my-zsh 2>&1) && exit_code=0 || exit_code=$?
-after=$(cat "$TEST_HOME/.zshrc")
-
-test_assert_eq \
-    "No base backup: exits non-zero" \
-    "1" \
-    "$exit_code"
-
-test_assert_eq \
-    "No base backup: .zshrc left untouched" \
-    "$before" \
-    "$after"
-
-rm -rf "$TEST_HOME"
-
-# --- Test 5: --dry-run makes no changes ---
-TEST_HOME=$(mktemp -d)
+mkdir -p "$TEST_HOME/.oh-my-zsh"
 
 cat > "$TEST_HOME/.zshrc.pre-oh-my-zsh" << 'EOF'
 export PATH="$HOME/bin:$PATH"
 EOF
-cp "$TEST_HOME/.zshrc.pre-oh-my-zsh" "$TEST_HOME/.zshrc"
-cat > "$TEST_HOME/.zshrc.omz-uninstalled-20260101_120000" << 'EOF'
+
+cat > "$TEST_HOME/.zshrc" << 'EOF'
+export PATH="$HOME/bin:$PATH"
+
+export ZSH="$HOME/.oh-my-zsh"
+ZSH_THEME="agnoster"
+plugins=(git)
+source $ZSH/oh-my-zsh.sh
+EOF
+
+output=$(HOME="$TEST_HOME" "$PROJECT_ROOT/devboost.sh" migrate-from-oh-my-zsh --yes 2>&1) && exit_code=0 || exit_code=$?
+result=$(cat "$TEST_HOME/.zshrc")
+
+test_assert_eq \
+    "Nothing beyond template: exits zero" \
+    "0" \
+    "$exit_code"
+
+test_assert_contains \
+    "Nothing beyond template: says nothing to recover" \
+    "$output" \
+    "nothing to recover"
+
+test_assert_eq \
+    "Nothing beyond template: .zshrc is just the restored base" \
+    'export PATH="$HOME/bin:$PATH"' \
+    "$result"
+
+rm -rf "$TEST_HOME"
+
+# --- Test 6: --dry-run makes no changes, even without --yes ---
+TEST_HOME=$(mktemp -d)
+mkdir -p "$TEST_HOME/.oh-my-zsh"
+
+cat > "$TEST_HOME/.zshrc.pre-oh-my-zsh" << 'EOF'
+export PATH="$HOME/bin:$PATH"
+EOF
+cat > "$TEST_HOME/.zshrc" << 'EOF'
 export PATH="$HOME/bin:$PATH"
 export ZSH="$HOME/.oh-my-zsh"
 source $ZSH/oh-my-zsh.sh
 export MY_VAR="test"
 EOF
 
-before=$(cat "$TEST_HOME/.zshrc")
+before_zshrc=$(cat "$TEST_HOME/.zshrc")
 HOME="$TEST_HOME" "$PROJECT_ROOT/devboost.sh" migrate-from-oh-my-zsh --dry-run >/dev/null 2>&1 || true
-after=$(cat "$TEST_HOME/.zshrc")
+after_zshrc=$(cat "$TEST_HOME/.zshrc")
 
 test_assert_eq \
     "Dry-run: .zshrc left untouched" \
-    "$before" \
-    "$after"
+    "$before_zshrc" \
+    "$after_zshrc"
+
+test_assert \
+    "Dry-run: ~/.oh-my-zsh left untouched" \
+    "[[ -d $TEST_HOME/.oh-my-zsh ]]"
+
+test_assert \
+    "Dry-run: .zshrc.pre-oh-my-zsh left untouched" \
+    "[[ -f $TEST_HOME/.zshrc.pre-oh-my-zsh ]]"
 
 rm -rf "$TEST_HOME"
 

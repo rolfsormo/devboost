@@ -369,22 +369,26 @@ db_remove_block() {
 }
 
 
-# oh-my-zsh migration helper
+# oh-my-zsh removal + migration helper
 #
-# oh-my-zsh's own `uninstall_oh_my_zsh` removes ~/.oh-my-zsh and restores
-# ~/.zshrc from ~/.zshrc.pre-oh-my-zsh (the pristine pre-install snapshot),
-# renaming the file it replaces to ~/.zshrc.omz-uninstalled-<timestamp>.
-# Any customization the user made *after* installing oh-my-zsh (aliases,
-# PATH tweaks, exports) lives only in that timestamped file and is lost
-# unless recovered.
+# This command replicates oh-my-zsh's own tools/uninstall.sh (removes
+# ~/.oh-my-zsh, renames the current ~/.zshrc to
+# ~/.zshrc.omz-uninstalled-<timestamp>, and restores ~/.zshrc.pre-oh-my-zsh
+# if that pre-install snapshot exists) and then recovers any customization
+# the user made *after* installing oh-my-zsh (aliases, PATH tweaks, exports)
+# that would otherwise be stranded in the timestamped backup.
 #
-# This command 3-way-merges those customizations back onto the restored
-# .zshrc using `git merge-file`, after first stripping oh-my-zsh's own
-# template lines (which differ from the pre-install base but are not user
-# content) from the "other" side. Non-conflicting additions are merged
-# automatically; anything ambiguous is left with <<<<<<< conflict markers
-# for the user to resolve by hand. Nothing is auto-applied to the real
-# ~/.zshrc without the user reviewing the result first.
+# Because the restore step always makes ~/.zshrc identical to the pre-install
+# base (when a base exists), recovery reduces to: lines present in the
+# timestamped backup but absent from the base are the user's additions —
+# append them, after stripping oh-my-zsh's own template lines (ZSH_THEME,
+# plugins=, source $ZSH/oh-my-zsh.sh, etc., which differ from the base too
+# but aren't user content). There's no real 3-way conflict to resolve here
+# since "current" and "base" always match going in.
+#
+# This is its own explicit subcommand — separate from apply/plan/doctor/
+# uninstall — precisely because it removes a directory and rewrites .zshrc;
+# it never runs as a side effect of anything else, and requires --yes.
 
 # Lines matching these patterns are oh-my-zsh's own template scaffolding,
 # not user content, even though their values are user-customized (e.g.
@@ -430,74 +434,129 @@ _db_omz_find_uninstalled_backup() {
     echo "$candidate"
 }
 
+# Replicates oh-my-zsh's tools/uninstall.sh: remove ~/.oh-my-zsh, rename the
+# current ~/.zshrc to a timestamped backup, and restore ~/.zshrc.pre-oh-my-zsh
+# if that pre-install snapshot exists.
+_db_omz_uninstall() {
+    local omz_dir="$HOME/.oh-my-zsh"
+    local zshrc="$HOME/.zshrc"
+    local base="$HOME/.zshrc.pre-oh-my-zsh"
+
+    if [[ ! -d "$omz_dir" ]]; then
+        db_log_verbose "No ~/.oh-my-zsh found — already removed or never installed."
+        return 0
+    fi
+
+    if [[ "${DB_DRY_RUN:-false}" == "true" ]]; then
+        db_log_info "Would remove: $omz_dir"
+        [[ -f "$zshrc" ]] && db_log_info "Would rename $zshrc to a timestamped .omz-uninstalled-* backup"
+        [[ -f "$base" ]] && db_log_info "Would restore $base to $zshrc"
+        return 0
+    fi
+
+    rm -rf "$omz_dir"
+    db_log_success "Removed: $omz_dir"
+
+    if [[ -f "$zshrc" ]]; then
+        local saved="$HOME/.zshrc.omz-uninstalled-$(date +%Y-%m-%d_%H-%M-%S)"
+        mv "$zshrc" "$saved"
+        db_log_info "Renamed $zshrc to: $saved"
+    fi
+
+    if [[ -f "$base" ]]; then
+        mv "$base" "$zshrc"
+        db_log_success "Restored pre-oh-my-zsh config to: $zshrc"
+    else
+        db_log_info "No ~/.zshrc.pre-oh-my-zsh found — nothing to restore."
+    fi
+}
+
+# Writes to stdout the lines in $other that are not present anywhere in $base,
+# after stripping oh-my-zsh template lines from $other. Order-preserving,
+# duplicate-preserving (does not dedupe repeated lines within $other itself).
+_db_omz_lines_only_in() {
+    local other="$1" base="$2"
+    local stripped_other
+    stripped_other=$(mktemp)
+    _db_omz_strip_template "$other" > "$stripped_other"
+
+    if [[ -n "$base" ]] && [[ -f "$base" ]]; then
+        grep -vFxf "$base" "$stripped_other" 2>/dev/null || true
+    else
+        cat "$stripped_other"
+    fi
+    rm -f "$stripped_other"
+}
+
 db_run_migrate_from_oh_my_zsh() {
     local zshrc="$HOME/.zshrc"
     local base="$HOME/.zshrc.pre-oh-my-zsh"
+
+    if [[ "${DB_DRY_RUN:-false}" != "true" ]] && [[ "${DB_OMZ_YES:-false}" != "true" ]]; then
+        db_log_error "This removes ~/.oh-my-zsh and rewrites ~/.zshrc — pass --yes to confirm."
+        db_log_info "Preview first with: devboost migrate-from-oh-my-zsh --dry-run"
+        return 1
+    fi
+
+    # _db_omz_uninstall moves $base to $zshrc (replicating oh-my-zsh's own
+    # uninstaller), consuming it — so snapshot its content first, since we
+    # still need it below to tell the base's own lines apart from the user's
+    # genuine post-install additions in the timestamped backup.
+    local base_snapshot=""
+    if [[ -f "$base" ]] && [[ "${DB_DRY_RUN:-false}" != "true" ]]; then
+        base_snapshot=$(mktemp)
+        cp "$base" "$base_snapshot"
+    fi
+
+    _db_omz_uninstall
+
     local uninstalled
     uninstalled=$(_db_omz_find_uninstalled_backup)
 
     if [[ -z "$uninstalled" ]]; then
-        db_log_error "No ~/.zshrc.omz-uninstalled-* backup found."
-        db_log_info "Run this after 'uninstall_oh_my_zsh' inside an oh-my-zsh shell — it creates that backup."
+        [[ -n "$base_snapshot" ]] && rm -f "$base_snapshot"
+        if [[ "${DB_DRY_RUN:-false}" == "true" ]]; then
+            db_log_info "No existing ~/.zshrc.omz-uninstalled-* backup yet — nothing further to recover in a dry-run."
+            return 0
+        fi
+        db_log_error "No ~/.zshrc.omz-uninstalled-* backup found — nothing to recover."
         return 1
     fi
     db_log_info "Found uninstall backup: $uninstalled"
 
-    if [[ ! -f "$base" ]]; then
-        db_log_warn "No ~/.zshrc.pre-oh-my-zsh found — oh-my-zsh's installer didn't save a pre-install snapshot."
-        db_log_warn "Nothing to merge against. Review manually instead:"
-        db_log_warn "  diff '$zshrc' '$uninstalled'"
-        return 1
-    fi
-
-    if [[ ! -f "$zshrc" ]]; then
-        db_log_error "No ~/.zshrc found to merge into."
-        return 1
-    fi
-
-    if ! db_command_exists git; then
-        db_log_error "git is required for this command (uses 'git merge-file')."
-        return 1
-    fi
-
-    db_log_info "Stripping oh-my-zsh template lines from the uninstalled backup..."
-    local stripped_other
-    stripped_other=$(mktemp)
-    _db_omz_strip_template "$uninstalled" > "$stripped_other"
-
-    local stripped_base
-    stripped_base=$(mktemp)
-    _db_omz_strip_template "$base" > "$stripped_base"
-
     if [[ "${DB_DRY_RUN:-false}" == "true" ]]; then
-        db_log_info "Would 3-way merge: base=$(basename "$base") current=$(basename "$zshrc") other=$(basename "$uninstalled")"
-        db_log_info "Would write result to: $zshrc (backup taken first)"
-        rm -f "$stripped_other" "$stripped_base"
+        if [[ -f "$base" ]]; then
+            db_log_info "Would recover your additions from '$(basename "$uninstalled")' not already in '$(basename "$base")'"
+        else
+            db_log_info "Would recover your additions from '$(basename "$uninstalled")' (no pre-install base to compare against)"
+        fi
+        db_log_info "Would append them to: $zshrc"
+        return 0
+    fi
+
+    local additions
+    additions=$(_db_omz_lines_only_in "$uninstalled" "$base_snapshot")
+    rm -f "$base_snapshot"
+
+    if [[ -z "$additions" ]]; then
+        db_log_success "No post-install customizations found beyond oh-my-zsh's own template — nothing to recover."
+        db_log_info "Review $zshrc, then run 'devboost apply' to add devboost's include block."
         return 0
     fi
 
     db_backup_file "$zshrc"
+    {
+        if [[ -f "$zshrc" ]]; then
+            cat "$zshrc"
+            echo ""
+        fi
+        echo "$additions"
+    } > "${zshrc}.devboost-omz-tmp"
+    mv "${zshrc}.devboost-omz-tmp" "$zshrc"
 
-    local merged
-    merged=$(mktemp)
-    cp "$zshrc" "$merged"
-
-    local merge_status=0
-    git merge-file -L "current .zshrc" -L "pre-oh-my-zsh base" -L "your customizations" \
-        "$merged" "$stripped_base" "$stripped_other" || merge_status=$?
-
-    mv "$merged" "$zshrc"
-    rm -f "$stripped_other" "$stripped_base"
-
-    if [[ "$merge_status" -eq 0 ]]; then
-        db_log_success "Merged customizations back into: $zshrc (no conflicts)"
-        db_log_info "Review the result, then run 'devboost apply' to add devboost's include block."
-        return 0
-    fi
-
-    db_log_warn "Merged with conflicts — resolve the <<<<<<< markers in: $zshrc"
-    db_log_info "Your original (pre-merge) file was backed up to: $DB_BACKUP_DIR"
-    return 1
+    db_log_success "Recovered your customizations into: $zshrc"
+    db_log_info "Review the result, then run 'devboost apply' to add devboost's include block."
+    return 0
 }
 
 # Module registry system
@@ -565,10 +624,11 @@ db_run_doctor() {
 
 # Main entry point and CLI
 
-DB_VERSION="1.2.0"
+DB_VERSION="1.3.0"
 DB_SUBCOMMAND="apply"
 DB_DRY_RUN=false
 DB_VERBOSE=false
+DB_OMZ_YES=false
 DB_BACKUP_DIR="${HOME}/.devboost/backups"
 DB_STATE_FILE="${HOME}/.devboost.state.json"
 
@@ -585,6 +645,10 @@ db_parse_flags() {
                 ;;
             --dry-run)
                 DB_DRY_RUN=true
+                shift
+                ;;
+            --yes)
+                DB_OMZ_YES=true
                 shift
                 ;;
             --verbose|-v)
@@ -619,11 +683,12 @@ Commands:
   plan                      Show actions without changing anything
   doctor                    Check prerequisites, PATHs, shells, conflicting files
   uninstall                 Remove managed files/blocks (leaves user custom files untouched)
-  migrate-from-oh-my-zsh    Recover .zshrc customizations after 'uninstall_oh_my_zsh'
+  migrate-from-oh-my-zsh    Remove oh-my-zsh and recover .zshrc customizations (needs --yes)
 
 Options:
   --config FILE    Config file path (default: ~/.devboost.yaml)
   --dry-run        Show what would be done without making changes
+  --yes            Confirm a destructive command (required by migrate-from-oh-my-zsh)
   --verbose, -v    Enable verbose output
   --help, -h       Show this help message
   --version        Show version
@@ -954,8 +1019,14 @@ db_module_zsh_plan() {
         db_log_info "Would create: $include_file"
     fi
     
-    if [[ ! -f "$zshrc" ]] || ! grep -q "# >>> devboost include start" "$zshrc" 2>/dev/null; then
+    if [[ ! -f "$zshrc" ]]; then
         db_log_info "Would inject devboost include block into: $zshrc"
+    elif ! grep -q "# >>> devboost include start" "$zshrc" 2>/dev/null; then
+        if grep -Eq '(^|[^#].*)\.zshrc\.devboost' "$zshrc" 2>/dev/null; then
+            db_log_warn "zsh: $zshrc already has an unmarked line sourcing .zshrc.devboost — apply will skip injecting to avoid double-sourcing"
+        else
+            db_log_info "Would inject devboost include block into: $zshrc"
+        fi
     fi
     
     # Check for atuin config file
@@ -1109,7 +1180,18 @@ db_module_zsh_apply() {
             echo "$include_block" > "$zshrc"
             db_log_success "Created: $zshrc"
         fi
-    elif ! grep -q "# >>> devboost include start" "$zshrc" 2>/dev/null; then
+    elif grep -q "# >>> devboost include start" "$zshrc" 2>/dev/null; then
+        db_log_verbose "Include block already present in: $zshrc"
+    elif grep -Eq '(^|[^#].*)\.zshrc\.devboost' "$zshrc" 2>/dev/null; then
+        # An unmarked line already sources .zshrc.devboost — likely left over from a
+        # prior manual edit or recovery (e.g. 'devboost migrate-from-oh-my-zsh').
+        # Appending our own marked block on top would source it twice on every
+        # shell start. Warn instead of duplicating; the user can remove the old
+        # line and re-run apply, or we'd need to know which line is "ours" to
+        # safely replace it, which we can't tell from content alone.
+        db_log_warn "zsh: $zshrc already has an unmarked line sourcing .zshrc.devboost — skipping to avoid double-sourcing it."
+        db_log_warn "zsh: remove that line (see: grep -n zshrc.devboost $zshrc) and re-run 'devboost apply' to add the managed include block."
+    else
         if [[ "${DB_DRY_RUN:-false}" == "true" ]]; then
             db_log_info "Would append include block to: $zshrc"
         else
@@ -1118,8 +1200,6 @@ db_module_zsh_apply() {
             echo "$include_block" >> "$zshrc"
             db_log_success "Injected include block into: $zshrc"
         fi
-    else
-        db_log_verbose "Include block already present in: $zshrc"
     fi
     
     # Create atuin config file if atuin is enabled
@@ -1695,6 +1775,20 @@ db_module_security_doctor() {
     if [[ -d "$HOME/.oh-my-zsh" ]]; then
         db_log_warn "security: ~/.oh-my-zsh detected — this is redundant with devboost's znap+starship setup and can slow shell startup or conflict with it. Consider removing it (see README)."
         found_issues=$((found_issues + 1))
+    fi
+
+    # Warn if .zshrc sources .zshrc.devboost twice (devboost's own marked block,
+    # plus a leftover unmarked line from a prior manual edit or recovery). Doubles
+    # the cost of everything in .zshrc.devboost — znap, atuin, mise, aliases, etc.
+    # — on every shell start.
+    local zshrc="$HOME/.zshrc"
+    if [[ -f "$zshrc" ]]; then
+        local devboost_source_count
+        devboost_source_count=$(grep -c '\.zshrc\.devboost' "$zshrc" 2>/dev/null || echo 0)
+        if [[ "$devboost_source_count" -gt 1 ]]; then
+            db_log_warn "security: $zshrc sources .zshrc.devboost $devboost_source_count times — likely double-sourced, which doubles shell startup cost. Run: grep -n zshrc.devboost $zshrc"
+            found_issues=$((found_issues + 1))
+        fi
     fi
 
     # Check if TPM was cloned over HTTPS (not HTTP)

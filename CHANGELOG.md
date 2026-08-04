@@ -8,6 +8,15 @@ with OS/tooling-specific adjustments.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-08-04
+
+### Added
+- `zsh` module and `security` doctor check now detect a pre-existing unmarked line in `~/.zshrc` that already sources `~/.zshrc.devboost` (e.g. left over from a prior manual edit or `devboost migrate-from-oh-my-zsh` recovery). `apply`/`plan` skip injecting devboost's own marked include block in that case instead of double-sourcing it — sourcing `.zshrc.devboost` twice silently doubled the cost of everything in it (znap, atuin, mise, aliases, etc.) on every shell start.
+
+### Changed
+- `devboost migrate-from-oh-my-zsh` now removes `~/.oh-my-zsh` itself (replicating oh-my-zsh's own `tools/uninstall.sh`) instead of requiring the user to run `uninstall_oh_my_zsh` first — one command instead of two. Since this is destructive, it now requires an explicit `--yes` flag to actually run (dry-run still needs no flag).
+- Simplified customization recovery from a `git merge-file` 3-way merge to a plain diff-and-append: since the command always restores `.zshrc` from the pre-install base itself first, "current" and "base" are identical going into any merge, so a real conflict was structurally impossible — the git dependency and merge-conflict handling for this path were dead code and have been removed.
+
 ## [1.2.0] - 2026-08-03
 
 ### Added
@@ -101,7 +110,8 @@ with OS/tooling-specific adjustments.
 
 ---
 
-[Unreleased]: https://github.com/yourusername/devboost/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/yourusername/devboost/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/yourusername/devboost/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/yourusername/devboost/compare/v1.0.0...v1.2.0
 [1.0.0]: https://github.com/yourusername/devboost/releases/tag/v1.0.0
 

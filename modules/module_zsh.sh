@@ -19,8 +19,14 @@ db_module_zsh_plan() {
         db_log_info "Would create: $include_file"
     fi
     
-    if [[ ! -f "$zshrc" ]] || ! grep -q "# >>> devboost include start" "$zshrc" 2>/dev/null; then
+    if [[ ! -f "$zshrc" ]]; then
         db_log_info "Would inject devboost include block into: $zshrc"
+    elif ! grep -q "# >>> devboost include start" "$zshrc" 2>/dev/null; then
+        if grep -Eq '(^|[^#].*)\.zshrc\.devboost' "$zshrc" 2>/dev/null; then
+            db_log_warn "zsh: $zshrc already has an unmarked line sourcing .zshrc.devboost — apply will skip injecting to avoid double-sourcing"
+        else
+            db_log_info "Would inject devboost include block into: $zshrc"
+        fi
     fi
     
     # Check for atuin config file
@@ -174,7 +180,18 @@ db_module_zsh_apply() {
             echo "$include_block" > "$zshrc"
             db_log_success "Created: $zshrc"
         fi
-    elif ! grep -q "# >>> devboost include start" "$zshrc" 2>/dev/null; then
+    elif grep -q "# >>> devboost include start" "$zshrc" 2>/dev/null; then
+        db_log_verbose "Include block already present in: $zshrc"
+    elif grep -Eq '(^|[^#].*)\.zshrc\.devboost' "$zshrc" 2>/dev/null; then
+        # An unmarked line already sources .zshrc.devboost — likely left over from a
+        # prior manual edit or recovery (e.g. 'devboost migrate-from-oh-my-zsh').
+        # Appending our own marked block on top would source it twice on every
+        # shell start. Warn instead of duplicating; the user can remove the old
+        # line and re-run apply, or we'd need to know which line is "ours" to
+        # safely replace it, which we can't tell from content alone.
+        db_log_warn "zsh: $zshrc already has an unmarked line sourcing .zshrc.devboost — skipping to avoid double-sourcing it."
+        db_log_warn "zsh: remove that line (see: grep -n zshrc.devboost $zshrc) and re-run 'devboost apply' to add the managed include block."
+    else
         if [[ "${DB_DRY_RUN:-false}" == "true" ]]; then
             db_log_info "Would append include block to: $zshrc"
         else
@@ -183,8 +200,6 @@ db_module_zsh_apply() {
             echo "$include_block" >> "$zshrc"
             db_log_success "Injected include block into: $zshrc"
         fi
-    else
-        db_log_verbose "Include block already present in: $zshrc"
     fi
     
     # Create atuin config file if atuin is enabled
