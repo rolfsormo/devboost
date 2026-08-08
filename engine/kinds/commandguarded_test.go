@@ -12,8 +12,8 @@ func TestCommandGuardedErrorsWhenUnregistered(t *testing.T) {
 
 func TestCommandGuardedDiffNilWhenSatisfied(t *testing.T) {
 	RegisterCommand("test-satisfied", GuardedCommand{
-		Satisfied: func() (bool, error) { return true, nil },
-		Converge:  func() error { t.Fatal("Converge should not be called when Satisfied"); return nil },
+		Satisfied: func(any) (bool, error) { return true, nil },
+		Converge:  func(any) error { t.Fatal("Converge should not be called when Satisfied"); return nil },
 	})
 	c := CommandGuarded{ID: "test-satisfied", Wants: "should already be true"}
 	op, err := c.Diff()
@@ -28,8 +28,8 @@ func TestCommandGuardedDiffNilWhenSatisfied(t *testing.T) {
 func TestCommandGuardedDiffPendingWhenUnsatisfied(t *testing.T) {
 	converged := false
 	RegisterCommand("test-unsatisfied", GuardedCommand{
-		Satisfied: func() (bool, error) { return converged, nil },
-		Converge: func() error {
+		Satisfied: func(any) (bool, error) { return converged, nil },
+		Converge: func(any) error {
 			converged = true
 			return nil
 		},
@@ -50,5 +50,36 @@ func TestCommandGuardedDiffPendingWhenUnsatisfied(t *testing.T) {
 	}
 	if !converged {
 		t.Fatal("expected Execute to call Converge")
+	}
+}
+
+// TestCommandGuardedPassesParams confirms Params flows through to both
+// Satisfied and Converge unmodified — the mechanism tmux's plugin-install
+// use (a configured TPM path) and similar parameterized uses depend on.
+func TestCommandGuardedPassesParams(t *testing.T) {
+	var seenBySatisfied, seenByConverge string
+	RegisterCommand("test-params", GuardedCommand{
+		Satisfied: func(p any) (bool, error) {
+			seenBySatisfied = p.(string)
+			return false, nil
+		},
+		Converge: func(p any) error {
+			seenByConverge = p.(string)
+			return nil
+		},
+	})
+	c := CommandGuarded{ID: "test-params", Params: "hello", Wants: "x"}
+	op, err := c.Diff()
+	if err != nil || op == nil {
+		t.Fatalf("op=%+v err=%v", op, err)
+	}
+	if seenBySatisfied != "hello" {
+		t.Fatalf("Satisfied saw %q, want %q", seenBySatisfied, "hello")
+	}
+	if err := op.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if seenByConverge != "hello" {
+		t.Fatalf("Converge saw %q, want %q", seenByConverge, "hello")
 	}
 }

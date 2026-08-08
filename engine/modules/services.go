@@ -11,7 +11,7 @@ import (
 
 func init() {
 	kinds.RegisterCommand("atuin_brew_service_running", kinds.GuardedCommand{
-		Satisfied: func() (bool, error) {
+		Satisfied: func(any) (bool, error) {
 			out, err := exec.Command("brew", "services", "list").Output()
 			if err != nil {
 				// brew not present/working — nothing this resource can
@@ -27,7 +27,7 @@ func init() {
 			}
 			return false, nil
 		},
-		Converge: func() error {
+		Converge: func(any) error {
 			return exec.Command("brew", "services", "start", "atuin").Run()
 		},
 	})

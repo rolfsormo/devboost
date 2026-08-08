@@ -17,11 +17,11 @@ func init() {
 		// whether corepack exists at all (if not, there's nothing to
 		// converge — matches the bash version's "skip if missing" path,
 		// not an error).
-		Satisfied: func() (bool, error) {
+		Satisfied: func(any) (bool, error) {
 			_, err := exec.LookPath("corepack")
 			return err != nil, nil // corepack absent -> "satisfied" (nothing to do)
 		},
-		Converge: func() error {
+		Converge: func(any) error {
 			return exec.Command("corepack", "enable").Run()
 		},
 	})
