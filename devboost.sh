@@ -559,6 +559,209 @@ db_run_migrate_from_oh_my_zsh() {
     return 0
 }
 
+# Generic helpers for detecting and safely retiring legacy shell tooling
+# that devboost's own modules have superseded (e.g. a pre-existing zinit
+# setup duplicating znap's plugins, or asdf duplicating mise).
+#
+# Design (see AGENTS.md's non-destructive principle, applied to files
+# devboost does not own):
+#   - Redundant lines in a user-owned file (like ~/.zshrc) are never
+#     deleted. They're commented out in place with a marker that both a
+#     human and this tooling can recognize:
+#       # devboost:disabled:<migration_id> <original line>
+#     A human can undo this by hand (delete the marker prefix). If they
+#     do, later runs must treat that as an explicit override and leave
+#     the line alone.
+#   - Redundant directories (like a pre-existing ~/.oh-my-zsh-style
+#     install root) are moved aside into ~/.devboost/backups/, never
+#     rm -rf'd.
+#   - Every edit also gets a full pre/post file snapshot in
+#     ~/.devboost/backups/ as an audit trail, independent of the marker.
+#   - `devboost clean` (db_run_clean) is the opt-in, separate step that
+#     actually deletes marked lines. It re-derives what to clean by
+#     grepping the live file each run — no reliance on in-process state
+#     from a prior apply — so it's idempotent and order-independent.
+
+_DB_LEGACY_MARKER_PREFIX="# devboost:disabled:"
+
+_db_legacy_marker_for() {
+    local migration_id="$1"
+    echo "${_DB_LEGACY_MARKER_PREFIX}${migration_id} "
+}
+
+# Hand-rolled snapshot with a caller-chosen suffix (db_backup_file's
+# signature is fixed at one arg with no suffix hook).
+_db_legacy_snapshot() {
+    local file="$1" migration_id="$2" phase="$3"
+    [[ -f "$file" ]] || return 0
+
+    local backup_dir="${DB_BACKUP_DIR:-$HOME/.devboost/backups}"
+    local timestamp
+    timestamp=$(date +%Y%m%d_%H%M%S)
+    local dest="${backup_dir}/$(basename "$file").${phase}-${migration_id}-${timestamp}"
+
+    if [[ "${DB_DRY_RUN:-false}" == "true" ]]; then
+        db_log_info "Would snapshot: $file -> $dest"
+        return 0
+    fi
+
+    db_ensure_dir "$backup_dir"
+    cp "$file" "$dest"
+    db_log_verbose "Snapshotted ($phase): $file -> $dest"
+}
+
+# True (0) if `file` currently contains a line matching `grep_pattern`
+# that is NOT marked disabled for `migration_id`, AND that same line was
+# previously marked (i.e. present in marked form in an earlier post-*
+# snapshot for this migration_id). This is the "user peeled the marker
+# off by hand" signal — later applies must not re-disable it.
+_db_legacy_line_restored() {
+    local file="$1" grep_pattern="$2" migration_id="$3"
+    [[ -f "$file" ]] || return 1
+
+    local marker
+    marker=$(_db_legacy_marker_for "$migration_id")
+
+    # Is there a live, unmarked line matching the pattern?
+    grep -Eq "$grep_pattern" "$file" 2>/dev/null || return 1
+    grep -E "$grep_pattern" "$file" 2>/dev/null | grep -qv "^${marker}" || {
+        # every matching live line is already marked -> nothing "restored"
+        return 1
+    }
+
+    # Was it ever marked before, per our own snapshots? Check the most
+    # recent post-<migration_id> snapshot of this file for the marked form.
+    local backup_dir="${DB_BACKUP_DIR:-$HOME/.devboost/backups}"
+    local base
+    base=$(basename "$file")
+    local latest_snapshot
+    latest_snapshot=$(ls -t "${backup_dir}/${base}.post-${migration_id}-"* 2>/dev/null | head -1) || true
+    [[ -n "$latest_snapshot" ]] || return 1
+
+    grep -Fq "${marker}" "$latest_snapshot" 2>/dev/null
+}
+
+# Comments out every live, unmarked line in `file` matching
+# `grep_pattern` (extended regex) with the devboost:disabled marker for
+# `migration_id`. Idempotent: already-marked lines are left untouched.
+# No-op if the user has manually restored a previously-marked line
+# (see _db_legacy_line_restored) — respects their override.
+_db_legacy_disable_lines() {
+    local file="$1" grep_pattern="$2" migration_id="$3"
+    [[ -f "$file" ]] || return 0
+
+    local marker
+    marker=$(_db_legacy_marker_for "$migration_id")
+
+    # Anything to do at all? Only unmarked lines matching the pattern.
+    local to_disable
+    to_disable=$(grep -E "$grep_pattern" "$file" 2>/dev/null | grep -v "^${marker}") || true
+    if [[ -z "$to_disable" ]]; then
+        db_log_verbose "No redundant lines to disable for $migration_id in $file"
+        return 0
+    fi
+
+    if _db_legacy_line_restored "$file" "$grep_pattern" "$migration_id"; then
+        db_log_verbose "Skipping $migration_id in $file — user restored a previously-disabled line"
+        return 0
+    fi
+
+    if [[ "${DB_DRY_RUN:-false}" == "true" ]]; then
+        while IFS= read -r line; do
+            db_log_info "Would disable ($migration_id) in $(basename "$file"): $line"
+        done <<< "$to_disable"
+        return 0
+    fi
+
+    _db_legacy_snapshot "$file" "$migration_id" "pre"
+
+    local temp_file
+    temp_file=$(mktemp)
+    awk -v pattern="$grep_pattern" -v marker="$marker" '
+        $0 ~ pattern && index($0, marker) != 1 { print marker $0; next }
+        { print }
+    ' "$file" > "$temp_file"
+
+    # grep -E and awk's ERE dialect can disagree on backslash-escaped
+    # literals in a pattern passed through a shell variable (confirmed
+    # with nvm's source-line pattern). If grep found lines to disable
+    # but awk's rewrite is identical to the original, the pattern is
+    # dialect-mismatched — fail loudly instead of silently claiming
+    # success while leaving the file untouched.
+    if diff -q "$file" "$temp_file" >/dev/null 2>&1; then
+        rm -f "$temp_file"
+        db_log_error "legacy_shell ($migration_id): grep matched lines in $file but awk's rewrite changed nothing — pattern is grep/awk-dialect-mismatched, not applied"
+        return 1
+    fi
+
+    mv "$temp_file" "$file"
+
+    db_log_success "Disabled redundant lines ($migration_id) in: $file"
+
+    _db_legacy_snapshot "$file" "$migration_id" "post"
+}
+
+# Moves `dir` aside into ~/.devboost/backups/ instead of deleting it.
+# Idempotent: no-op if `dir` no longer exists (already archived).
+_db_legacy_archive_dir() {
+    local dir="$1" migration_id="$2"
+    [[ -d "$dir" ]] || return 0
+
+    local backup_dir="${DB_BACKUP_DIR:-$HOME/.devboost/backups}"
+    local timestamp
+    timestamp=$(date +%Y%m%d_%H%M%S)
+    local dest="${backup_dir}/$(basename "$dir")-${migration_id}-${timestamp}"
+
+    if [[ "${DB_DRY_RUN:-false}" == "true" ]]; then
+        db_log_info "Would archive: $dir -> $dest"
+        return 0
+    fi
+
+    db_ensure_dir "$backup_dir"
+    mv "$dir" "$dest"
+    db_log_success "Archived: $dir -> $dest"
+}
+
+# Strips every devboost:disabled-marked line (any migration_id) from
+# `file`, restoring nothing — this is real deletion, the opt-in step.
+# Idempotent: no-op if no marked lines are present.
+_db_legacy_clean_file() {
+    local file="$1"
+    [[ -f "$file" ]] || return 0
+
+    grep -qF "$_DB_LEGACY_MARKER_PREFIX" "$file" 2>/dev/null || return 0
+
+    if [[ "${DB_DRY_RUN:-false}" == "true" ]]; then
+        local count
+        count=$(grep -cF "$_DB_LEGACY_MARKER_PREFIX" "$file" 2>/dev/null) || count=0
+        db_log_info "Would remove $count devboost-disabled line(s) from: $file"
+        return 0
+    fi
+
+    db_backup_file "$file"
+    local temp_file
+    temp_file=$(mktemp)
+    grep -vF "$_DB_LEGACY_MARKER_PREFIX" "$file" > "$temp_file" || true
+    mv "$temp_file" "$file"
+    db_log_success "Removed devboost-disabled lines from: $file"
+}
+
+# List of files any legacy-shell migration might mark. Extend here if a
+# future migration_id targets a different file.
+_db_legacy_managed_files() {
+    echo "$HOME/.zshrc"
+    echo "$HOME/.zprofile"
+}
+
+db_run_clean() {
+    db_log_info "Cleaning devboost-disabled lines..."
+    local f
+    while IFS= read -r f; do
+        _db_legacy_clean_file "$f"
+    done < <(_db_legacy_managed_files)
+    db_log_info "Archived directories remain under: ${DB_BACKUP_DIR:-$HOME/.devboost/backups} (remove that folder to purge everything)"
+}
+
 # Module registry system
 # Uses bash 3.x compatible approach (no associative arrays)
 
@@ -624,7 +827,7 @@ db_run_doctor() {
 
 # Main entry point and CLI
 
-DB_VERSION="1.3.0"
+DB_VERSION="1.4.0"
 DB_SUBCOMMAND="apply"
 DB_DRY_RUN=false
 DB_VERBOSE=false
@@ -635,7 +838,7 @@ DB_STATE_FILE="${HOME}/.devboost.state.json"
 db_parse_flags() {
     while [[ $# -gt 0 ]]; do
         case $1 in
-            apply|plan|doctor|uninstall|migrate-from-oh-my-zsh)
+            apply|plan|doctor|uninstall|clean|migrate-from-oh-my-zsh)
                 DB_SUBCOMMAND="$1"
                 shift
                 ;;
@@ -683,6 +886,7 @@ Commands:
   plan                      Show actions without changing anything
   doctor                    Check prerequisites, PATHs, shells, conflicting files
   uninstall                 Remove managed files/blocks (leaves user custom files untouched)
+  clean                     Remove devboost-disabled legacy-tooling lines and archived dirs
   migrate-from-oh-my-zsh    Remove oh-my-zsh and recover .zshrc customizations (needs --yes)
 
 Options:
@@ -699,7 +903,7 @@ EOF
 coreMain() {
     # Parse command first (before flags)
     local cmd="apply"
-    if [[ $# -gt 0 ]] && [[ "$1" =~ ^(apply|plan|doctor|uninstall|migrate-from-oh-my-zsh)$ ]]; then
+    if [[ $# -gt 0 ]] && [[ "$1" =~ ^(apply|plan|doctor|uninstall|clean|migrate-from-oh-my-zsh)$ ]]; then
         cmd="$1"
         shift
     fi
@@ -753,6 +957,9 @@ coreMain() {
             ;;
         uninstall)
             db_run_uninstall
+            ;;
+        clean)
+            db_run_clean
             ;;
         migrate-from-oh-my-zsh)
             db_run_migrate_from_oh_my_zsh
@@ -1074,9 +1281,14 @@ export EDITOR="nvim"
 export LANG="en_US.UTF-8"
 
 setopt HIST_IGNORE_ALL_DUPS HIST_REDUCE_BLANKS SHARE_HISTORY INC_APPEND_HISTORY
-autoload -Uz compinit && compinit -u
 setopt AUTO_CD NO_BEEP
 
+# znap owns completion init: it redefines compinit/compdef as no-ops and
+# runs its own deferred, precmd-hook-based compinit after loading (see
+# ~/.zsh-snap/scripts/init.zsh). Calling compinit here ourselves, before
+# znap is sourced, would run a second full completion pass into a
+# different dumpfile — pure redundant cost with no effect (znap's
+# no-op override discards any completions we'd have registered anyway).
 # znap
 source "${znap_path}/znap.zsh"
 
@@ -1215,6 +1427,165 @@ db_module_zsh_apply() {
     fi
 }
 
+
+# Legacy shell tooling module
+#
+# Detects and safely retires shell tooling that duplicates what devboost's
+# own modules already provide, when found in a pre-existing (non-devboost
+# managed) ~/.zshrc or ~/.zprofile:
+#   - zinit loading the same plugins znap (module_znap.sh) already loads
+#     (zsh-autosuggestions, and a fast-syntax-highlighting/syntax-highlighting
+#     fork of the same feature)
+#   - asdf, alongside devboost's own mise (module_mise.sh)
+#   - nvm's shell hook (in ~/.zprofile, login-shell-only — measured at
+#     ~850-900ms per login shell via zprof, the dominant real-world startup
+#     cost found on the investigation machine), alongside devboost's own mise
+#
+# Redundant lines are commented out in place (see core/core_legacy_shell.sh)
+# rather than deleted, so the user can review/undo by hand. Actual deletion
+# of marked lines happens only via the separate `devboost clean` command.
+
+DB_LEGACY_ZINIT_ZNAP_ID="zinit-znap-dup"
+DB_LEGACY_ASDF_MISE_ID="asdf-mise-dup"
+DB_LEGACY_NVM_MISE_ID="nvm-mise-dup"
+
+# Matches zinit lines loading plugins znap's default config already loads.
+DB_LEGACY_ZINIT_DUP_PATTERN='^[[:space:]]*zinit (light|load)[^#]*(zsh-users/zsh-autosuggestions|zdharma-continuum/fast-syntax-highlighting|zsh-users/zsh-syntax-highlighting)'
+
+# Matches the line sourcing asdf's shell integration.
+DB_LEGACY_ASDF_SOURCE_PATTERN='(^|[[:space:]])\. .*/asdf\.sh([[:space:]]|$)'
+
+# Matches lines sourcing nvm's shell hook or its bash-completion shim
+# (e.g. `[ -s ".../nvm.sh" ] && \. ".../nvm.sh"`). Deliberately does not
+# match a plain `export NVM_DIR=...` line — that's a harmless variable,
+# not the expensive part. Matches on the quoted path alone (not the
+# leading `\.`/`source` token) since backslash-escaped literals in this
+# pattern are interpreted differently by grep -E vs awk's ERE dialect
+# when passed through a shell variable — see core_legacy_shell.sh's
+# _db_legacy_disable_lines, which runs the same pattern string through
+# both. Keep future patterns here grep/awk-dialect-safe for that reason.
+DB_LEGACY_NVM_SOURCE_PATTERN='"[^"]*/nvm(\.sh|/etc/bash_completion\.d/nvm)"'
+
+db_module_legacy_shell_register() {
+    db_register_module "legacy_shell" \
+        "db_module_legacy_shell_plan" \
+        "db_module_legacy_shell_apply" \
+        "db_module_legacy_shell_doctor"
+}
+
+_db_legacy_shell_zshrc() {
+    db_yaml_get '.legacy_shell.zshrc' "$HOME/.zshrc"
+}
+
+_db_legacy_shell_zprofile() {
+    db_yaml_get '.legacy_shell.zprofile' "$HOME/.zprofile"
+}
+
+# True if `file` contains a live (unmarked) line matching `pattern` —
+# i.e. one devboost hasn't already disabled for `migration_id`. A marker
+# is prepended to, not a replacement of, the original line, so the
+# pattern still matches inside an already-disabled line; excluding lines
+# that start with the marker is what keeps doctor/plan from re-reporting
+# something already fixed as still needing action.
+_db_legacy_shell_unmarked_match_present() {
+    local file="$1" pattern="$2" migration_id="$3"
+    [[ -f "$file" ]] || return 1
+    local marker="# devboost:disabled:${migration_id} "
+    grep -E "$pattern" "$file" 2>/dev/null | grep -qv "^${marker}"
+}
+
+# True if zinit is loading a plugin that duplicates one of znap's.
+_db_legacy_shell_zinit_dup_present() {
+    _db_legacy_shell_unmarked_match_present "$1" "$DB_LEGACY_ZINIT_DUP_PATTERN" "$DB_LEGACY_ZINIT_ZNAP_ID"
+}
+
+# True if asdf is sourced (redundant with mise).
+_db_legacy_shell_asdf_present() {
+    _db_legacy_shell_unmarked_match_present "$1" "$DB_LEGACY_ASDF_SOURCE_PATTERN" "$DB_LEGACY_ASDF_MISE_ID"
+}
+
+# True if nvm's shell hook is sourced (redundant with mise).
+_db_legacy_shell_nvm_present() {
+    _db_legacy_shell_unmarked_match_present "$1" "$DB_LEGACY_NVM_SOURCE_PATTERN" "$DB_LEGACY_NVM_MISE_ID"
+}
+
+db_module_legacy_shell_doctor() {
+    local enable
+    enable=$(db_yaml_get '.legacy_shell.enable' 'true')
+    [[ "$enable" == "true" ]] || return 0
+
+    local zshrc
+    zshrc=$(_db_legacy_shell_zshrc)
+
+    if _db_legacy_shell_zinit_dup_present "$zshrc"; then
+        db_log_warn "legacy_shell: zinit is loading plugin(s) that duplicate znap's — run 'devboost apply' to disable them"
+    else
+        db_log_success "legacy_shell: no zinit/znap plugin duplication found"
+    fi
+
+    if _db_legacy_shell_asdf_present "$zshrc"; then
+        db_log_warn "legacy_shell: asdf is active alongside mise — run 'devboost apply' to disable it"
+    else
+        db_log_success "legacy_shell: no asdf/mise duplication found"
+    fi
+
+    local zprofile
+    zprofile=$(_db_legacy_shell_zprofile)
+
+    if _db_legacy_shell_nvm_present "$zprofile"; then
+        db_log_warn "legacy_shell: nvm's shell hook is active alongside mise (login-shell startup cost) — run 'devboost apply' to disable it"
+    else
+        db_log_success "legacy_shell: no nvm/mise duplication found"
+    fi
+}
+
+db_module_legacy_shell_plan() {
+    local enable
+    enable=$(db_yaml_get '.legacy_shell.enable' 'true')
+    [[ "$enable" == "true" ]] || return 0
+
+    local zshrc
+    zshrc=$(_db_legacy_shell_zshrc)
+
+    if _db_legacy_shell_zinit_dup_present "$zshrc"; then
+        db_log_info "Would disable redundant zinit plugin line(s) in: $zshrc"
+    fi
+    if _db_legacy_shell_asdf_present "$zshrc"; then
+        db_log_info "Would disable redundant asdf source line in: $zshrc"
+    fi
+
+    local zprofile
+    zprofile=$(_db_legacy_shell_zprofile)
+    if _db_legacy_shell_nvm_present "$zprofile"; then
+        db_log_info "Would disable redundant nvm source line(s) in: $zprofile"
+    fi
+}
+
+db_module_legacy_shell_apply() {
+    local enable
+    enable=$(db_yaml_get '.legacy_shell.enable' 'true')
+    if [[ "$enable" != "true" ]]; then
+        return 0
+    fi
+
+    local zshrc
+    zshrc=$(_db_legacy_shell_zshrc)
+    [[ -f "$zshrc" ]] || return 0
+
+    if _db_legacy_shell_zinit_dup_present "$zshrc"; then
+        _db_legacy_disable_lines "$zshrc" "$DB_LEGACY_ZINIT_DUP_PATTERN" "$DB_LEGACY_ZINIT_ZNAP_ID"
+    fi
+
+    if _db_legacy_shell_asdf_present "$zshrc"; then
+        _db_legacy_disable_lines "$zshrc" "$DB_LEGACY_ASDF_SOURCE_PATTERN" "$DB_LEGACY_ASDF_MISE_ID"
+    fi
+
+    local zprofile
+    zprofile=$(_db_legacy_shell_zprofile)
+    if [[ -f "$zprofile" ]] && _db_legacy_shell_nvm_present "$zprofile"; then
+        _db_legacy_disable_lines "$zprofile" "$DB_LEGACY_NVM_SOURCE_PATTERN" "$DB_LEGACY_NVM_MISE_ID"
+    fi
+}
 
 # Starship prompt module
 
@@ -1835,6 +2206,7 @@ db_load_modules() {
     db_module_pkg_register
     db_module_znap_register
     db_module_zsh_register
+    db_module_legacy_shell_register
     db_module_starship_register
     db_module_tmux_register
     db_module_mise_register

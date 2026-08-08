@@ -74,6 +74,15 @@ zsh:
   aliases:
     enable: true
 
+# Detects and disables shell tooling that duplicates what devboost already
+# manages when found in your pre-existing ~/.zshrc (a leftover zinit setup
+# duplicating znap's plugins, or asdf alongside mise). Redundant lines are
+# commented out (never deleted) so you can review/undo by hand; run
+# `devboost clean` separately to actually remove the disabled lines.
+legacy_shell:
+  enable: true
+  zshrc: ~/.zshrc
+
 prompt:
   enable_starship: true
   starship_config: ~/.config/starship.toml

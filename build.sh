@@ -8,7 +8,7 @@ OUT="devboost.sh"
 {
     # Entry point
     cat devboost.sh.in
-    
+
     # Core framework (order matters)
     echo ""
     echo "# === Core Framework ==="
@@ -22,10 +22,12 @@ OUT="devboost.sh"
     echo ""
     cat core/core_omz.sh
     echo ""
+    cat core/core_legacy_shell.sh
+    echo ""
     cat core/core_modules.sh
     echo ""
     cat core/core_main.sh
-    
+
     # Modules (order matters - dependencies first)
     echo ""
     echo "# === Modules ==="
@@ -34,6 +36,8 @@ OUT="devboost.sh"
     cat modules/module_znap.sh
     echo ""
     cat modules/module_zsh.sh
+    echo ""
+    cat modules/module_legacy_shell.sh
     echo ""
     cat modules/module_starship.sh
     echo ""
@@ -60,6 +64,7 @@ db_load_modules() {
     db_module_pkg_register
     db_module_znap_register
     db_module_zsh_register
+    db_module_legacy_shell_register
     db_module_starship_register
     db_module_tmux_register
     db_module_mise_register
@@ -72,7 +77,7 @@ db_load_modules() {
     db_log_verbose "Loaded ${#DB_MODULE_NAMES[@]} modules"
 }
 REGEOF
-    
+
     # Main execution
     echo ""
     echo "# === Main Execution ==="
@@ -94,4 +99,3 @@ chmod +x "$OUT"
 
 echo "Built: $OUT"
 echo "Size: $(wc -l < "$OUT") lines"
-

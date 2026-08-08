@@ -74,9 +74,14 @@ export EDITOR="nvim"
 export LANG="en_US.UTF-8"
 
 setopt HIST_IGNORE_ALL_DUPS HIST_REDUCE_BLANKS SHARE_HISTORY INC_APPEND_HISTORY
-autoload -Uz compinit && compinit -u
 setopt AUTO_CD NO_BEEP
 
+# znap owns completion init: it redefines compinit/compdef as no-ops and
+# runs its own deferred, precmd-hook-based compinit after loading (see
+# ~/.zsh-snap/scripts/init.zsh). Calling compinit here ourselves, before
+# znap is sourced, would run a second full completion pass into a
+# different dumpfile — pure redundant cost with no effect (znap's
+# no-op override discards any completions we'd have registered anyway).
 # znap
 source "${znap_path}/znap.zsh"
 

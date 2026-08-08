@@ -1,6 +1,6 @@
 # Main entry point and CLI
 
-DB_VERSION="1.3.0"
+DB_VERSION="1.4.0"
 DB_SUBCOMMAND="apply"
 DB_DRY_RUN=false
 DB_VERBOSE=false
@@ -11,7 +11,7 @@ DB_STATE_FILE="${HOME}/.devboost.state.json"
 db_parse_flags() {
     while [[ $# -gt 0 ]]; do
         case $1 in
-            apply|plan|doctor|uninstall|migrate-from-oh-my-zsh)
+            apply|plan|doctor|uninstall|clean|migrate-from-oh-my-zsh)
                 DB_SUBCOMMAND="$1"
                 shift
                 ;;
@@ -59,6 +59,7 @@ Commands:
   plan                      Show actions without changing anything
   doctor                    Check prerequisites, PATHs, shells, conflicting files
   uninstall                 Remove managed files/blocks (leaves user custom files untouched)
+  clean                     Remove devboost-disabled legacy-tooling lines and archived dirs
   migrate-from-oh-my-zsh    Remove oh-my-zsh and recover .zshrc customizations (needs --yes)
 
 Options:
@@ -75,7 +76,7 @@ EOF
 coreMain() {
     # Parse command first (before flags)
     local cmd="apply"
-    if [[ $# -gt 0 ]] && [[ "$1" =~ ^(apply|plan|doctor|uninstall|migrate-from-oh-my-zsh)$ ]]; then
+    if [[ $# -gt 0 ]] && [[ "$1" =~ ^(apply|plan|doctor|uninstall|clean|migrate-from-oh-my-zsh)$ ]]; then
         cmd="$1"
         shift
     fi
@@ -129,6 +130,9 @@ coreMain() {
             ;;
         uninstall)
             db_run_uninstall
+            ;;
+        clean)
+            db_run_clean
             ;;
         migrate-from-oh-my-zsh)
             db_run_migrate_from_oh_my_zsh

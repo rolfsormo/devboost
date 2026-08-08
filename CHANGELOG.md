@@ -8,6 +8,18 @@ with OS/tooling-specific adjustments.
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-08-08
+
+### Added
+- `legacy_shell` module: detects shell tooling in a pre-existing `~/.zshrc`/`~/.zprofile` that duplicates what devboost already manages — a leftover `zinit` setup loading the same plugins as devboost's `znap` (`zsh-autosuggestions`, a syntax-highlighting fork), `asdf` sourced alongside devboost's `mise`, or `nvm`'s shell hook (measured at ~850-900ms per login shell) also alongside `mise` — surfaced via `doctor`, and disabled by `apply`/`plan`. Redundant lines are commented out in place with a `# devboost:disabled:<id>` marker rather than deleted, so they can be reviewed or restored by hand at any time; if a user removes the marker themselves, later runs respect that as an explicit override and leave the line alone. Full pre/post snapshots of every edited file are kept in `~/.devboost/backups/` as an audit trail independent of the marker.
+- `devboost clean` command: permanently removes lines previously marked `# devboost:disabled:...`. Idempotent and order-independent — it re-derives what to remove by scanning the live file each run, so it works correctly regardless of when or whether `apply` last ran. Respects `--dry-run`.
+
+### Fixed
+- `zsh` module no longer calls `compinit` itself in the generated `.zshrc.devboost`. It ran *before* znap was sourced, but znap redefines `compinit`/`compdef` as no-ops and runs its own deferred, `precmd`-hook-based compinit into a separate dumpfile the moment it loads — so devboost's own call was a wasted full completion rebuild every shell start, immediately superseded by znap's. Removing it, combined with the `legacy_shell` fixes above, took a real-machine's measured login-shell startup from ~1.44s to ~285-305ms (~80% reduction).
+
+### Motivation
+Investigating real-world zsh startup lag surfaced this exact conflict on a live machine: a pre-existing, non-devboost `zinit` setup, `asdf`, and `nvm` were all running fully redundant plugin/version-manager initialization on every shell start, before devboost's own managed config even loaded — compounded by devboost's own generated config doing a second, wasted completion rebuild on top.
+
 ## [1.3.0] - 2026-08-04
 
 ### Added

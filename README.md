@@ -183,6 +183,7 @@ devboost [COMMAND] [OPTIONS]
 - **`plan`** - Preview what would change (dry-run)
 - **`doctor`** - Check system health and prerequisites
 - **`uninstall`** - Remove devboost-managed files
+- **`clean`** - Remove devboost-disabled legacy-tooling lines and archived directories
 - **`migrate-from-oh-my-zsh`** - Remove oh-my-zsh and recover `.zshrc` customizations (destructive — needs `--yes`)
 
 ### Options
@@ -212,7 +213,22 @@ devboost apply --config ~/my-config.yaml
 # Remove oh-my-zsh and recover your customizations
 devboost migrate-from-oh-my-zsh --dry-run   # preview first
 devboost migrate-from-oh-my-zsh --yes       # then actually run it
+
+# Permanently remove lines devboost previously disabled (see below)
+devboost clean --dry-run                    # preview first
+devboost clean                              # then actually run it
 ```
+
+### Legacy shell tooling cleanup
+
+If devboost finds a pre-existing `~/.zshrc` with tooling that duplicates what it
+already manages — a leftover `zinit` setup loading the same plugins as devboost's
+`znap`, or `asdf` alongside devboost's `mise` — `apply` comments out the redundant
+lines in place (prefixed with `# devboost:disabled:...`) rather than deleting them,
+so you can review or restore them by hand at any time. Run `devboost clean` whenever
+you're ready to permanently remove those disabled lines; it's idempotent and safe to
+run repeatedly. Disable this behavior entirely with `legacy_shell.enable: false` in
+your config.
 
 ---
 
