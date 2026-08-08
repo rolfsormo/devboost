@@ -69,17 +69,9 @@ func (c *Config) Get(dottedKey string, def string) string {
 }
 
 func (c *Config) get(dottedKey string, def string) string {
-	cur := any(c.data)
-	for _, part := range strings.Split(strings.Trim(dottedKey, "."), ".") {
-		m, ok := cur.(map[string]any)
-		if !ok {
-			return def
-		}
-		v, ok := m[part]
-		if !ok {
-			return def
-		}
-		cur = v
+	cur, ok := c.lookup(dottedKey)
+	if !ok {
+		return def
 	}
 	switch v := cur.(type) {
 	case string:
@@ -89,6 +81,52 @@ func (c *Config) get(dottedKey string, def string) string {
 	default:
 		return def
 	}
+}
+
+// GetList reads a dotted key path expected to hold a YAML list of
+// strings (e.g. "packages.base"), returning nil if the key is absent or
+// isn't a list. Non-string list items are stringified the same way Get
+// stringifies scalars; items that are neither a string nor a plain
+// scalar are skipped rather than erroring, so one malformed entry
+// doesn't take down reading the whole list.
+func (c *Config) GetList(dottedKey string) []string {
+	cur, ok := c.lookup(dottedKey)
+	if !ok {
+		return nil
+	}
+	items, ok := cur.([]any)
+	if !ok {
+		return nil
+	}
+	var out []string
+	for _, item := range items {
+		switch v := item.(type) {
+		case string:
+			out = append(out, v)
+		case bool, int, int64, float64:
+			out = append(out, fmt.Sprintf("%v", v))
+		}
+	}
+	return out
+}
+
+// lookup walks a dotted key path through the loaded config, returning the
+// raw value at that path (whatever type it happens to be) and whether it
+// was found at all.
+func (c *Config) lookup(dottedKey string) (any, bool) {
+	cur := any(c.data)
+	for _, part := range strings.Split(strings.Trim(dottedKey, "."), ".") {
+		m, ok := cur.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		v, ok := m[part]
+		if !ok {
+			return nil, false
+		}
+		cur = v
+	}
+	return cur, true
 }
 
 func expandHome(s string) string {

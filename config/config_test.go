@@ -156,3 +156,43 @@ func TestGetLeavesNonTildeValuesUntouched(t *testing.T) {
 		t.Fatalf("got %q, want /absolute/path", got)
 	}
 }
+
+func TestGetListReadsStringItems(t *testing.T) {
+	path := writeFixture(t, "packages:\n  base:\n    - zsh\n    - tmux\n    - fzf\n")
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := cfg.GetList("packages.base")
+	want := []string{"zsh", "tmux", "fzf"}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("got %v, want %v", got, want)
+		}
+	}
+}
+
+func TestGetListNilWhenAbsent(t *testing.T) {
+	path := writeFixture(t, "packages:\n  other: value\n")
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.GetList("packages.base"); got != nil {
+		t.Fatalf("got %v, want nil", got)
+	}
+}
+
+func TestGetListNilWhenNotAList(t *testing.T) {
+	path := writeFixture(t, "packages:\n  base: not-a-list\n")
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.GetList("packages.base"); got != nil {
+		t.Fatalf("got %v, want nil", got)
+	}
+}
