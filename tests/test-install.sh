@@ -52,7 +52,15 @@ if [[ -n "$PLATFORM_OS" && -n "$PLATFORM_ARCH" ]]; then
     PORT=8143
     (cd "$TMPDIR_TEST" && python3 -m http.server "$PORT" >/dev/null 2>&1) &
     SERVER_PID=$!
-    sleep 1
+
+    # Poll for the server to actually accept connections instead of a
+    # fixed sleep — a fixed 1s guess raced http.server's real bind time
+    # on slower/loaded runners (observed failing on GitHub Actions'
+    # macOS runner, which is meaningfully slower than local hardware).
+    for _ in $(seq 1 50); do
+        curl -s -o /dev/null "http://localhost:$PORT/" && break
+        sleep 0.1
+    done
 
     output=$(DEVBOOST_INSTALL_BASE_URL="http://localhost:$PORT" "$PROJECT_ROOT/install.sh" --version 2>&1) && exit_code=0 || exit_code=$?
 
