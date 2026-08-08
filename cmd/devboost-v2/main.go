@@ -23,6 +23,7 @@ Commands:
   plan                      Show actions without changing anything
   doctor                    Check prerequisites and report per-module findings
   uninstall                 Remove managed files/blocks (leaves user custom files untouched)
+  clean                     Remove devboost-disabled legacy-tooling lines and archived dirs
   migrate-from-oh-my-zsh    Remove oh-my-zsh and recover .zshrc customizations (needs --yes)
 
 Options:
@@ -74,6 +75,8 @@ func main() {
 		err = runDoctor(cfg, detectedOS)
 	case "uninstall":
 		err = modules.Uninstall(cfg)
+	case "clean":
+		err = modules.Clean(cfg, f.dryRun)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n\n%s", f.cmd, usage)
 		os.Exit(1)
@@ -95,7 +98,7 @@ func parseArgs(args []string) flags {
 	i := 0
 	if len(args) > 0 {
 		switch args[0] {
-		case "apply", "plan", "doctor", "uninstall", "migrate-from-oh-my-zsh":
+		case "apply", "plan", "doctor", "uninstall", "clean", "migrate-from-oh-my-zsh":
 			f.cmd = args[0]
 			i = 1
 		case "--help", "-h":

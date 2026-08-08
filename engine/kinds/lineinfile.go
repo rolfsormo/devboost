@@ -11,17 +11,19 @@ import (
 	"github.com/rolfsormo/devboost/engine"
 )
 
-// markerPrefix and MarkerFor mirror the bash tool's
+// MarkerPrefix and MarkerFor mirror the bash tool's
 // _DB_LEGACY_MARKER_PREFIX/_db_legacy_marker_for exactly, so a file marked
 // by the bash version and later processed by this Go version (or vice
 // versa, during the migration period) is read identically by both.
-// Exported so callers outside this package (tests, a future doctor/clean
-// implementation) can construct the exact marker string for a migration
-// ID without duplicating the format.
-const markerPrefix = "# devboost:disabled:"
+// Exported so callers outside this package (tests, the clean command)
+// can construct the exact marker string — MarkerFor for a specific
+// migration ID, MarkerPrefix to match a devboost:disabled line
+// regardless of which migration marked it — without duplicating the
+// format.
+const MarkerPrefix = "# devboost:disabled:"
 
 func MarkerFor(migrationID string) string {
-	return markerPrefix + migrationID + " "
+	return MarkerPrefix + migrationID + " "
 }
 
 // LineInFile declares "lines matching Pattern in this file should be
