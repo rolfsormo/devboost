@@ -83,6 +83,18 @@ Go doc comment. Requirements:
   pager — 31.7k stars vs. diff-so-fancy's 18.1k, checked live" is rationale.
   Both belong in the comment, but the rationale is the part this skill is
   about.
+- **Name the alternatives you rejected, and why.** A choice only reads as
+  researched if the reader can see what else was on the table. For any
+  category with a real competing option (a different pager, a different
+  version manager, a different plugin manager), name it and give the
+  concrete reason it lost — adoption gap, missing a feature the winner has,
+  official guidance pointing the other way, or "close call, no strong
+  reason, we just had to pick one." "We chose delta over diff-so-fancy
+  because delta has ~1.75x the stars and comparison writeups consistently
+  call it more capable" is a real comparison; "we chose delta" alone is
+  not, even with a star count attached. If the runner-up is close enough
+  that a reasonable person could disagree, say that too — don't manufacture
+  a bigger gap than the research actually found.
 - **Cite something checkable.** Star counts, a specific doc URL, a specific
   measurement from this project's own history. Avoid unsourced claims like
   "widely considered best practice."
