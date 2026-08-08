@@ -44,7 +44,7 @@ func (f File) Diff() (*engine.PendingOp, error) {
 		Description: fmt.Sprintf("%s %s", verb, f.Path),
 		Execute: func() error {
 			if !f.NoBackup {
-				if err := backupFile(f.Path); err != nil {
+				if err := BackupFile(f.Path); err != nil {
 					return err
 				}
 			}

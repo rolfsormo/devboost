@@ -20,11 +20,14 @@ func backupDir() (string, error) {
 	return filepath.Join(home, ".devboost", "backups"), nil
 }
 
-// backupFile copies path into a fresh timestamped subdirectory of the
+// BackupFile copies path into a fresh timestamped subdirectory of the
 // backup dir before it's about to be overwritten, mirroring the bash
 // tool's db_backup_file. A no-op if path doesn't exist yet (nothing to
-// back up).
-func backupFile(path string) error {
+// back up). Exported so module-local resource kinds outside this package
+// (e.g. zsh's include-block handling, which has its own custom diff logic
+// not shaped like any generic kind) can reuse the same backup behavior
+// instead of duplicating it.
+func BackupFile(path string) error {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil
 	} else if err != nil {

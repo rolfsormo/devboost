@@ -56,7 +56,7 @@ func (b BlockInFile) Diff() (*engine.PendingOp, error) {
 	return &engine.PendingOp{
 		Description: fmt.Sprintf("%s %s", verb, b.Path),
 		Execute: func() error {
-			if err := backupFile(b.Path); err != nil {
+			if err := BackupFile(b.Path); err != nil {
 				return err
 			}
 			return os.WriteFile(b.Path, []byte(desired), 0o644)
