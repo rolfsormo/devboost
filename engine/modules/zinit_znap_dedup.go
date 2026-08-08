@@ -21,6 +21,24 @@ const zinitDupPattern = `^[[:space:]]*zinit (light|load)[^#]*(zsh-users/zsh-auto
 // see LineInFile). This is one of the three per-tool dedup modules split
 // out of the original single legacy_shell module, per the architecture
 // doc's tool-first grouping decision.
+//
+// Why these three dedup modules exist at all: running a legacy tool
+// alongside its devboost-managed replacement isn't just wasted disk —
+// each one does real work on every login shell (sourcing shell hooks,
+// scanning version files, re-registering completions), duplicating
+// what the replacement already does. This investigation measured nvm's
+// shell hook specifically at ~850-900ms per login shell on a real
+// machine via zprof — the single largest contributor to shell startup
+// lag found, and reason enough on its own to disable it by default
+// (see nvm_mise_dedup.go). Because a broken shell is worse than a slow
+// one, none of these three modules ever delete a line: they comment it
+// out in place via LineInFile, leaving a clear, reversible trace, and
+// they're drift-aware — if a user manually restores the line, the next
+// run detects that and leaves it alone rather than fighting the user's
+// explicit choice. See also: issue #8, on eventually treating this as
+// a first-class config-porting migration rather than a silent
+// comment-out, so a user's zinit-side customizations aren't just
+// dropped when devboost picks a different tool.
 func ZinitZnapDedup(cfg *config.Config) []engine.Resource {
 	if cfg.Get("legacy_shell.enable", "true") != "true" {
 		return nil

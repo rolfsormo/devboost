@@ -41,6 +41,21 @@ func init() {
 // that informational note belongs to whatever doctor/info-only
 // diagnostic mechanism lands with the security module (task #14), not
 // forced into a resource with nothing to do.
+//
+// Why atuin: it's the leading modern shell-history tool — SQLite-backed
+// searchable history with sync support, a significant step up from zsh's
+// built-in history file, and the config this module manages (see
+// zshdevboost.go's renderAtuinConfig) is what makes atuin actually take
+// over shell history search rather than just being installed inert.
+// Running it as a persistent brew service (vs. invoking it per-shell)
+// is what atuin's own daemon mode is for — matches atuin's documented
+// setup for its optional background sync/daemon behavior. The
+// Darwin-only-action / Linux-informational split isn't a value
+// judgment on Linux, it's because brew services is the actual
+// convergence primitive here (see git.go/pkg.go for the broader
+// "shell out to the tool's own CLI when it's the best primitive" rule)
+// and Linux init systems vary enough (systemd vs. others) that there's
+// no single equivalent primitive to shell out to yet.
 func Services(cfg *config.Config, os kinds.OS) []engine.Resource {
 	if cfg.Get("zsh.history.use_atuin", "true") != "true" {
 		return nil

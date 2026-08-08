@@ -158,6 +158,29 @@ func init() {
 // first real, substantial use, since neither "converge toolchains" nor
 // "conditionally offer an interactive migration" maps onto any of the
 // typed kinds.
+//
+// Why mise over asdf/nvm/pyenv/rbenv/etc: mise (jdx.dev) is a single
+// Rust binary that replaces the whole "one version manager per
+// language, each with its own shell hook" pattern — that pattern is
+// exactly what this investigation found costing real login-shell time
+// (nvm's hook alone measured ~850-900ms; see the dedup modules). A
+// single tool with one shell hook is a direct fix for the redundant-
+// tooling class devboost exists partly to clean up, not just a
+// preference. mise is also the actively-maintained, faster-growing
+// successor in this space (asdf's own plugin ecosystem is largely
+// shell-script based and slower; nvm predates and doesn't share mise's
+// activate-once model).
+//
+// Per-toolchain default versions — flagged for the periodic
+// adversarial re-review (issue #9), not asserted as settled:
+//   - node: "lts" and rust: "stable", deno: "lts" are genuinely safe,
+//     low-maintenance defaults — "track the vendor's own stability
+//     channel" is uncontroversial and doesn't go stale on its own.
+//   - python: "3.14" and go: "1.26" are specific pinned versions, not
+//     rolling channels — these WILL go stale as new versions ship and
+//     need periodic bumping; there's no equivalent to Node's clearly-
+//     defined LTS channel for either. Treat these two as needing
+//     active upkeep, not "set once and correct forever."
 func Mise(cfg *config.Config) []engine.Resource {
 	if cfg.Get("toolchains.enable_mise", "true") != "true" {
 		return nil

@@ -20,7 +20,8 @@ const nvmSourcePattern = `"[^"]*/nvm(\.sh|/etc/bash_completion\.d/nvm)"`
 // ~850-900ms per login shell — the dominant real-world contributor to
 // the startup-lag investigation this whole dedup mechanism came from)
 // sourced in ~/.zprofile alongside devboost's own mise, disabled in
-// place.
+// place. See zinit_znap_dedup.go for the shared rationale behind all
+// three dedup modules.
 func NvmMiseDedup(cfg *config.Config) []engine.Resource {
 	if cfg.Get("legacy_shell.enable", "true") != "true" {
 		return nil

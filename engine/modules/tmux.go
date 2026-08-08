@@ -71,6 +71,26 @@ func init() {
 // Tmux ports modules/module_tmux.sh: clone TPM, upsert the devboost tmux
 // config block, and install/update plugins (gated on
 // system.auto_install_plugins), gated overall on tmux.enable.
+//
+// Why TPM plus this specific plugin set: TPM (tmux-plugins/tpm) is the
+// de facto standard tmux plugin manager — there isn't a serious
+// competing option with comparable adoption. tmux-resurrect +
+// tmux-continuum (session persistence across restarts/reboots) and
+// tmux-yank (system-clipboard integration) are consistently the
+// highest-adoption plugins in shared tmux configs; tmux-logging is a
+// smaller, more niche addition included for convenience rather than
+// strong external consensus.
+//
+// escape-time = 0 (tmux.settings.escape_time default) is the one
+// setting here with unambiguous, widely-documented justification: tmux
+// defaults to 500ms so it can distinguish a literal Escape keypress
+// from the start of an escape-sequence-based key (arrow keys, Alt
+// combos, etc.), but that delay is directly perceptible as lag when
+// using vi-mode or any Alt-key bindings in a terminal, and setting it
+// to 0 is close to universal advice in tmux configuration guides. The
+// rest of the settings (mouse, history-limit, base-index,
+// pane-base-index, focus-events) are common quality-of-life defaults
+// without a single canonical source behind the exact values chosen.
 func Tmux(cfg *config.Config) []engine.Resource {
 	if cfg.Get("tmux.enable", "true") != "true" {
 		return nil

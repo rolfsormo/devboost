@@ -68,6 +68,17 @@ devboost-check() {
 // devboost-check alias block into .zshrc.devboost, gated on
 // security.enable.
 //
+// Why a shell alias rather than a background/scheduled check: devboost
+// commits to zero prompts and no daemons/cron entries of its own (see
+// core principles) — a manually-invoked `devboost-check` alias respects
+// that by putting the developer in control of when the (mildly slow:
+// brew outdated, mise outdated, optionally npm audit) check runs,
+// rather than silently running it on every shell startup or installing
+// a background job the user didn't ask for. The tradeoff is real: an
+// opt-in alias only surfaces problems when someone remembers to run
+// it. That tradeoff is worth flagging for the periodic re-review
+// (issue #9) if devboost's zero-prompt stance ever loosens.
+//
 // This resource explicitly DependsOn zsh's zshrc_devboost resource,
 // because both target the same file and have incompatible write
 // semantics: zsh's is a File (full-content overwrite), security's is a

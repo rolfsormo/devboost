@@ -12,7 +12,9 @@ const asdfSourcePattern = `(^|[[:space:]])\. .*/asdf\.sh([[:space:]]|$)`
 
 // AsdfMiseDedup ports the asdf-mise-dup half of
 // modules/module_legacy_shell.sh: asdf sourced alongside devboost's own
-// mise, disabled in place, never deleted.
+// mise, disabled in place, never deleted. See zinit_znap_dedup.go for
+// the shared rationale behind all three dedup modules (measured
+// startup-lag cost, comment-out-never-delete, drift-aware).
 func AsdfMiseDedup(cfg *config.Config) []engine.Resource {
 	if cfg.Get("legacy_shell.enable", "true") != "true" {
 		return nil
