@@ -1,6 +1,7 @@
 package modules
 
 import (
+	"fmt"
 	"os/exec"
 
 	"github.com/rolfsormo/devboost/config"
@@ -13,15 +14,33 @@ func init() {
 		// corepack itself has no direct "is enable already run" query, and
 		// the bash version doesn't attempt one either — it just runs
 		// `corepack enable` every apply, relying on corepack's own command
-		// being idempotent. Faithfully ported: Satisfied is only about
-		// whether corepack exists at all (if not, there's nothing to
-		// converge — matches the bash version's "skip if missing" path,
-		// not an error).
+		// being idempotent. Faithfully ported for the "corepack is
+		// present" case: Satisfied only ever returns true by actually
+		// running Converge (it can't cheaply know without side effects
+		// whether shims are already set up), same as upstream.
+		//
+		// Unlike the original port, "corepack absent" is no longer treated
+		// as satisfied — see the Corepack doc comment below for why:
+		// Node 25+ no longer bundles it, so absence is now the expected
+		// case on a current toolchain, not a signal there's nothing to do.
 		Satisfied: func(any) (bool, error) {
-			_, err := exec.LookPath("corepack")
-			return err != nil, nil // corepack absent -> "satisfied" (nothing to do)
+			return false, nil
 		},
 		Converge: func(any) error {
+			if _, err := exec.LookPath("corepack"); err != nil {
+				// Node's own TSC decision (nodejs/node#51981) explicitly
+				// names this as the replacement workflow: "instead of
+				// running `corepack enable` they'd run `npm install -g
+				// corepack`." Matching upstream's own recommendation
+				// rather than working around their decision.
+				fmt.Println("corepack not found (expected on Node 25+, which no longer bundles it) — installing via npm")
+				if _, err := exec.LookPath("npm"); err != nil {
+					return fmt.Errorf("corepack missing and npm not found — cannot install corepack (is toolchains.enable_mise's node toolchain actually installed?)")
+				}
+				if err := exec.Command("npm", "install", "-g", "corepack").Run(); err != nil {
+					return fmt.Errorf("npm install -g corepack: %w", err)
+				}
+			}
 			return exec.Command("corepack", "enable").Run()
 		},
 	})
@@ -29,21 +48,36 @@ func init() {
 
 // Corepack ports modules/module_corepack.sh: enable pnpm/yarn shims via
 // corepack, gated on toolchains.enable_mise (corepack ships bundled with
-// Node.js, which mise manages).
+// Node.js, which mise manages) — and, as of the fix documented here,
+// installs corepack itself via npm when it's missing rather than
+// silently skipping.
 //
-// This default needs a caveat, not just a justification: Node's TSC
-// voted to stop bundling corepack starting with Node 25 (it was
-// experimental even while bundled). Node 24 LTS still ships it; Node
-// 26 — becoming the next LTS around October 2026 — does not
-// (confirmed via Node's own v25.8.0 docs and TSC decision reporting).
-// Corepack itself isn't being deprecated as a project (still actively
-// maintained standalone), just unbundled — `npm install -g corepack`
-// remains the fix. Because Satisfied() above treats "binary not found"
-// as "nothing to do" rather than surfacing a warning, this module will
-// silently stop providing pnpm/yarn shims for anyone on Node 25+ once
-// that becomes the common case. That's a real gap, not a hypothetical
-// one — see the follow-up to add a fallback install or an explicit
-// warning rather than silent success.
+// Why this needed a real fix, not just a doc caveat: Node's TSC voted
+// to stop bundling corepack starting with Node 25 (nodejs/TSC#1697,
+// "Phase out later" — remove from Node 25+, keep experimental in Node
+// ≤24 until that line's EOL). Node 24 LTS still ships it; Node 26,
+// becoming the next LTS around October 2026, does not. The reasoning
+// (read directly from nodejs/node#50963, #51981, and #52107, not just
+// the announcement issues) was mostly about liability/scope — Node
+// didn't want to ship a command that silently downloads and runs
+// third-party software (yarn/pnpm) on first use, and npm's own team
+// declined to integrate with corepack, which undercut its original
+// premise of unifying package-manager installation. It was not a
+// judgment that corepack itself is unnecessary or poorly maintained —
+// it remains actively developed as an independent project.
+//
+// Critically, the removal PR's own author states the replacement
+// workflow explicitly: "Corepack isn't getting deleted or abandoned...
+// instead of running `corepack enable` they'd run `npm install -g
+// corepack`." That is exactly what Converge above now does when
+// corepack is missing — this aligns with upstream's stated intent
+// rather than working around it. The one thing worth carrying from the
+// security side of that discussion: corepack's own maintainer has
+// called its download-integrity model (HTTPS + an optional hash pin)
+// "OK but not great," so pinning a project's packageManager field with
+// its hash (corepack's own supported mechanism) remains the safer path
+// for what corepack fetches after this installs it — nothing this
+// module does weakens that.
 func Corepack(cfg *config.Config) []engine.Resource {
 	if cfg.Get("toolchains.enable_mise", "true") != "true" {
 		return nil
