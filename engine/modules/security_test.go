@@ -45,7 +45,18 @@ func TestSecurityEnabledByDefaultInjectsAliasBlock(t *testing.T) {
 	}
 }
 
-func TestSecurityDiagnosticsNoneWhenClean(t *testing.T) {
+// TestSecurityDiagnosticsNoRepoManagedWarningsWhenClean checks only the
+// diagnostics SecurityDiagnostics actually controls from a clean HOME:
+// no toolchain-pinned-to-latest warning, no oh-my-zsh warning, no
+// double-sourced-zshrc warning. It deliberately does NOT assert "zero
+// diagnostics total" — two of SecurityDiagnostics' checks (Homebrew
+// index staleness, TPM remote protocol) read real, uncontrolled
+// external state (the actual machine's Homebrew cache age, actual TPM
+// clone if present) that a temp HOME can't isolate. Asserting a single
+// "clean" diagnostic here previously broke on CI runners with a
+// genuinely stale Homebrew index — a real, accurate finding the test
+// wrongly treated as a failure.
+func TestSecurityDiagnosticsNoRepoManagedWarningsWhenClean(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	cfg := loadFixtureConfig(t, "")
@@ -54,8 +65,10 @@ func TestSecurityDiagnosticsNoneWhenClean(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(diags) != 1 || diags[0].Warn {
-		t.Fatalf("expected a single non-warning 'no issues' diagnostic, got %+v", diags)
+	for _, d := range diags {
+		if d.Warn && (strings.Contains(d.Message, "'node'") || strings.Contains(d.Message, "oh-my-zsh") || strings.Contains(d.Message, "double-sourced")) {
+			t.Fatalf("expected no repo-managed-state warnings from a clean HOME, got %+v", d)
+		}
 	}
 }
 
