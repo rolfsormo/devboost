@@ -2,11 +2,15 @@ package engine
 
 import "fmt"
 
-// Apply computes the same diff Plan does, then executes each pending
-// operation. It calls the identical ComputeDiff — there is no separate
-// "what apply would do" computation.
+// Apply diffs and executes resources one at a time, in dependency order —
+// see the package doc for why this can't be "compute the same diff Plan
+// computes, then execute it": a resource that depends on another must be
+// diffed after that dependency has actually executed, not against a
+// stale, pre-execution view of the system.
 func Apply(resources []Resource) error {
-	ops, err := ComputeDiff(resources)
+	ops, err := DiffAndExecute(resources, func(op PendingOp) {
+		fmt.Printf("%s...\n", op.Description)
+	})
 	if err != nil {
 		return err
 	}
@@ -15,13 +19,6 @@ func Apply(resources []Resource) error {
 		return nil
 	}
 	for _, op := range ops {
-		fmt.Printf("%s...\n", op.Description)
-		if op.Execute == nil {
-			return fmt.Errorf("resource %s: pending op has no Execute", op.ResourceID)
-		}
-		if err := op.Execute(); err != nil {
-			return fmt.Errorf("resource %s: %w", op.ResourceID, err)
-		}
 		fmt.Printf("Done: %s\n", op.Description)
 	}
 	return nil

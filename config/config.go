@@ -13,11 +13,36 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-var loaded map[string]any
-var loadErr error
-var didLoad bool
+// Config is a loaded ~/.devboost.yaml. Load it once at CLI startup and
+// pass it to whatever needs it — no package-level global state, so tests
+// can load an arbitrary fixture path without env-var tricks.
+type Config struct {
+	data map[string]any
+}
 
-func path() string {
+// Load reads and parses the YAML file at path. A missing file is not an
+// error — it's treated as an empty config, so every Get call falls back
+// to its default. Only a malformed file (present but unparsable) errors.
+func Load(path string) (*Config, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &Config{data: map[string]any{}}, nil
+		}
+		return nil, err
+	}
+	var m map[string]any
+	if err := yaml.Unmarshal(data, &m); err != nil {
+		return nil, err
+	}
+	if m == nil {
+		m = map[string]any{}
+	}
+	return &Config{data: m}, nil
+}
+
+// DefaultPath returns ~/.devboost.yaml for the current user.
+func DefaultPath() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return ".devboost.yaml"
@@ -25,44 +50,17 @@ func path() string {
 	return filepath.Join(home, ".devboost.yaml")
 }
 
-func load() {
-	didLoad = true
-	data, err := os.ReadFile(path())
-	if err != nil {
-		if os.IsNotExist(err) {
-			loaded = map[string]any{}
-			return
-		}
-		loadErr = err
-		return
-	}
-	var m map[string]any
-	if err := yaml.Unmarshal(data, &m); err != nil {
-		loadErr = err
-		return
-	}
-	loaded = m
+// Get reads a dotted key path (e.g. "zsh.znap_path"), returning def if
+// the key or any intermediate segment is absent, or isn't a string.
+// String values (both real ones and def itself) are expanded for a
+// leading ~, since defaults like "~/.zsh-snap" need that too — expansion
+// happens exactly once, regardless of which path returned the value.
+func (c *Config) Get(dottedKey string, def string) string {
+	return expandHome(c.get(dottedKey, def))
 }
 
-// Get reads a dotted key path (e.g. "zsh.znap_path") from
-// ~/.devboost.yaml, returning def if the file, key, or any intermediate
-// segment is absent. It never errors on a missing file or key — only a
-// malformed file is surfaced, via GetErr.
-func Get(dottedKey string, def string) string {
-	return expandHome(get(dottedKey, def))
-}
-
-// get returns the raw (un-expanded) value, so expansion happens exactly
-// once regardless of which return path was taken — including the default,
-// since defaults like "~/.zsh-snap" need expansion too.
-func get(dottedKey string, def string) string {
-	if !didLoad {
-		load()
-	}
-	if loadErr != nil {
-		return def
-	}
-	cur := any(loaded)
+func (c *Config) get(dottedKey string, def string) string {
+	cur := any(c.data)
 	for _, part := range strings.Split(strings.Trim(dottedKey, "."), ".") {
 		m, ok := cur.(map[string]any)
 		if !ok {
@@ -81,28 +79,15 @@ func get(dottedKey string, def string) string {
 	return s
 }
 
-// GetErr reports a parse error from the last Get call, if any (e.g. a
-// malformed ~/.devboost.yaml). Callers that want to distinguish "using the
-// default because nothing was configured" from "using the default because
-// the config file is broken" should check this after calling Get.
-func GetErr() error {
-	if !didLoad {
-		load()
-	}
-	return loadErr
-}
-
 func expandHome(s string) string {
 	if s == "~" {
-		home, err := os.UserHomeDir()
-		if err == nil {
+		if home, err := os.UserHomeDir(); err == nil {
 			return home
 		}
 		return s
 	}
 	if len(s) >= 2 && s[0] == '~' && s[1] == '/' {
-		home, err := os.UserHomeDir()
-		if err == nil {
+		if home, err := os.UserHomeDir(); err == nil {
 			return filepath.Join(home, s[2:])
 		}
 	}

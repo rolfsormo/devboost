@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/rolfsormo/devboost/config"
 	"github.com/rolfsormo/devboost/engine"
 	"github.com/rolfsormo/devboost/engine/modules"
 )
@@ -17,9 +18,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	resources := modules.Znap()
+	cfg, err := config.Load(config.DefaultPath())
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error loading config:", err)
+		os.Exit(1)
+	}
 
-	var err error
+	resources := modules.Znap(cfg)
+
 	switch os.Args[1] {
 	case "plan":
 		err = engine.Plan(resources)
