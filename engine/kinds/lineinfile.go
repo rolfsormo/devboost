@@ -11,13 +11,16 @@ import (
 	"github.com/rolfsormo/devboost/engine"
 )
 
-// markerPrefix and markerFor mirror the bash tool's
+// markerPrefix and MarkerFor mirror the bash tool's
 // _DB_LEGACY_MARKER_PREFIX/_db_legacy_marker_for exactly, so a file marked
 // by the bash version and later processed by this Go version (or vice
 // versa, during the migration period) is read identically by both.
+// Exported so callers outside this package (tests, a future doctor/clean
+// implementation) can construct the exact marker string for a migration
+// ID without duplicating the format.
 const markerPrefix = "# devboost:disabled:"
 
-func markerFor(migrationID string) string {
+func MarkerFor(migrationID string) string {
 	return markerPrefix + migrationID + " "
 }
 
@@ -61,7 +64,7 @@ func (l LineInFile) wasEverMarked() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return strings.Contains(string(data), markerFor(l.MigrationID)), nil
+	return strings.Contains(string(data), MarkerFor(l.MigrationID)), nil
 }
 
 func (l LineInFile) Diff() (*engine.PendingOp, error) {
@@ -78,7 +81,7 @@ func (l LineInFile) Diff() (*engine.PendingOp, error) {
 		return nil, fmt.Errorf("read %s: %w", l.Path, err)
 	}
 
-	marker := markerFor(l.MigrationID)
+	marker := MarkerFor(l.MigrationID)
 	lines := splitLines(string(data))
 	var toDisable []int
 	for i, line := range lines {

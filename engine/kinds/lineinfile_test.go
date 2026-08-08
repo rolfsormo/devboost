@@ -48,7 +48,7 @@ func TestLineInFileDiffPendingWhenUnmarkedMatchExists(t *testing.T) {
 
 	data, _ := os.ReadFile(path)
 	got := string(data)
-	if !strings.Contains(got, markerFor("zinit-znap-dup")+"zinit light") {
+	if !strings.Contains(got, MarkerFor("zinit-znap-dup")+"zinit light") {
 		t.Fatalf("expected disabled line to carry the marker, got %q", got)
 	}
 	if !strings.Contains(got, "mise activate zsh") {
@@ -101,7 +101,7 @@ func TestLineInFileRespectsManualRestore(t *testing.T) {
 
 	// User manually removes the marker prefix, restoring the line.
 	data, _ := os.ReadFile(path)
-	restored := strings.ReplaceAll(string(data), markerFor("zinit-znap-dup"), "")
+	restored := strings.ReplaceAll(string(data), MarkerFor("zinit-znap-dup"), "")
 	if err := os.WriteFile(path, []byte(restored), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +136,7 @@ func TestLineInFileLeavesNonMatchingLinesAlone(t *testing.T) {
 
 	data, _ := os.ReadFile(path)
 	got := string(data)
-	if strings.Contains(got, markerFor("zinit-znap-dup")+"zinit light zsh-users/zsh-completions") {
+	if strings.Contains(got, MarkerFor("zinit-znap-dup")+"zinit light zsh-users/zsh-completions") {
 		t.Fatalf("expected the non-matching completions line to stay unmarked, got %q", got)
 	}
 	if !strings.Contains(got, "\nzinit light zsh-users/zsh-completions") && !strings.HasPrefix(got, "zinit light zsh-users/zsh-completions") {
