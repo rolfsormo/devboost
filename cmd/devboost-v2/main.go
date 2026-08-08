@@ -19,9 +19,10 @@ const usage = `devboost - Bootstrap a modern dev environment
 Usage: devboost-v2 [COMMAND] [OPTIONS]
 
 Commands:
-  apply     Converge machine to config (default)
-  plan      Show actions without changing anything
-  doctor    Check prerequisites and report per-module findings
+  apply       Converge machine to config (default)
+  plan        Show actions without changing anything
+  doctor      Check prerequisites and report per-module findings
+  uninstall   Remove managed files/blocks (leaves user custom files untouched)
 
 Options:
   --config FILE    Config file path (default: ~/.devboost.yaml)
@@ -49,6 +50,8 @@ func main() {
 		err = engine.Apply(modules.AllResources(cfg, detectedOS))
 	case "doctor":
 		err = runDoctor(cfg, detectedOS)
+	case "uninstall":
+		err = modules.Uninstall(cfg)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n\n%s", cmd, usage)
 		os.Exit(1)
@@ -63,8 +66,7 @@ func main() {
 // parseArgs is intentionally small: a subcommand token plus --config,
 // mirroring the bash tool's db_parse_flags for the subset of flags this
 // CLI currently supports. --dry-run/--verbose/--yes and the
-// uninstall/migrate-from-oh-my-zsh subcommands are not yet wired here —
-// see tasks #16/#17.
+// migrate-from-oh-my-zsh subcommand are not yet wired here — see task #17.
 func parseArgs(args []string) (cmd string, configPath string) {
 	cmd = "apply"
 	configPath = config.DefaultPath()
@@ -72,7 +74,7 @@ func parseArgs(args []string) (cmd string, configPath string) {
 	i := 0
 	if len(args) > 0 {
 		switch args[0] {
-		case "apply", "plan", "doctor":
+		case "apply", "plan", "doctor", "uninstall":
 			cmd = args[0]
 			i = 1
 		case "--help", "-h":

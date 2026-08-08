@@ -64,6 +64,31 @@ func (b BlockInFile) Diff() (*engine.PendingOp, error) {
 	}, nil
 }
 
+// RemoveBlock strips a marked block (start/end markers inclusive) from
+// path, ports the bash tool's db_remove_block. A no-op if the file
+// doesn't exist or the start marker isn't present. Used by uninstall,
+// not by BlockInFile.Diff/Execute (which only ever adds/updates a
+// block) — removal is a deliberate, separate action, same split as the
+// bash tool's db_upsert_block vs. db_remove_block.
+func RemoveBlock(path, startMarker, endMarker string) error {
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+	current := string(data)
+	if !strings.Contains(current, startMarker) {
+		return nil
+	}
+	if err := BackupFile(path); err != nil {
+		return err
+	}
+	desired := replaceOrAppendBlock(current, startMarker, endMarker, "")
+	return os.WriteFile(path, []byte(desired), 0o644)
+}
+
 // replaceOrAppendBlock ports db_upsert_block's awk logic line-by-line: if
 // startMarker is found, everything from that line through the endMarker
 // line (inclusive) is replaced with block; otherwise block is appended
