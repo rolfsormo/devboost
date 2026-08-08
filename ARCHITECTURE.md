@@ -2,176 +2,214 @@
 
 ## Overview
 
-devboost is built as a **modular Bash framework** that concatenates into a single distributable script. This design provides:
+devboost is a Go program built as a **Terraform-inspired typed-resource
+engine**: every module describes desired state as a list of typed
+`engine.Resource` values, and one shared function (`engine.ComputeDiff`)
+computes what's out of sync. `plan` and `apply` both call that same
+function — `plan` prints the result and stops, `apply` prints and then
+executes it — so there is no separate hand-written plan narration to
+drift out of sync with what apply actually does.
 
-- **Single-command UX**: One `devboost.sh` file to distribute
-- **Easy extensibility**: Add modules by creating new files
-- **Maintainability**: Clear separation of concerns
-- **Zero runtime dependencies**: Pure Bash + `yq` (or Python fallback)
+This replaced an earlier bash implementation (still visible in git
+history) where every module hand-wrote a `plan` function and an `apply`
+function separately, describing the same change twice in two different
+places. That duplication was a real, hit-in-production bug class — see
+the [CHANGELOG](CHANGELOG.md) for the double-sourcing bug this surfaced.
+`ComputeDiff` closes that bug class structurally: there is only one place
+"what needs to change" is computed, for both commands.
 
 ## Directory Structure
 
 ```
 devboost/
-  devboost.sh.in       # Entry point (minimal)
-  build.sh            # Build script (concatenates everything)
-  
-  core/                # Framework components
-    core_main.sh       # CLI, argument parsing, main execution
-    core_log.sh        # Logging functions (db_log_*)
-    core_os.sh         # OS detection, package manager abstraction
-    core_yaml.sh       # YAML config parsing (via yq)
-    core_files.sh      # File operations (backup, write, block management)
-    core_omz.sh        # oh-my-zsh migration helper (git merge-file based)
-    core_modules.sh    # Module registry system
-    
-  modules/             # Feature modules
-    module_pkg.sh      # Package installation
-    module_znap.sh     # Znap plugin manager
-    module_zsh.sh      # Zsh configuration
-    module_starship.sh # Starship prompt
-    module_tmux.sh     # Tmux configuration
-    module_mise.sh     # Mise toolchains
-    module_direnv.sh   # Direnv setup
-    module_git.sh       # Git delta config
-    module_services.sh  # Service management (atuin, etc.)
-    
-  templates/           # Template files (future use)
-  dist/                # Build output (gitignored)
+  cmd/devboost/           # CLI entry point (main.go)
+
+  engine/                 # Core engine — no knowledge of specific modules
+    resource.go           # Resource, ResourceKind, PendingOp, ComputeDiff, DiffAndExecute
+    plan.go                # Plan(): diff, print, stop
+    apply.go                # Apply(): diff-and-execute one resource at a time, in dependency order
+    doctor.go                # Doctor(): diffs the combined graph once, groups results by module
+    diagnostic.go             # Diagnostic/DiagnosticFunc: read-only findings with nothing to converge
+
+    kinds/                  # Resource kind implementations — the "providers"
+      directory.go           # DirExists
+      gitclone.go              # GitClone
+      file.go                   # File (full-content, backed up before overwrite)
+      gitconfig.go               # GitConfig (shells out to `git config`)
+      blockinfile.go               # BlockInFile / RemoveBlock (managed block between markers)
+      lineinfile.go                  # LineInFile (the dedup modules' comment-out mechanism)
+      package.go                      # Package (per-OS package manager abstraction)
+      commandguarded.go                 # CommandGuarded (the one deliberate escape hatch)
+      backup.go                          # Shared backup/snapshot/archive helpers
+      os.go                                # OS detection
+
+    modules/                 # Module ports — the actual opinionated defaults
+      registry.go              # Module registry: All, AllResources
+      znap.go, starship.go, tmux.go, mise.go, pkg.go, git.go, corepack.go,
+      direnv.go, services.go, security.go, zsh*.go, *_dedup.go, uninstall.go,
+      migrateohmyzsh.go, clean.go
+
+  config/                  # ~/.devboost.yaml reader (config.Config)
 ```
+
+## The Resource Model
+
+```go
+// A resource kind knows how to diff itself against live system state.
+type ResourceKind interface {
+    Diff() (*PendingOp, error)
+}
+
+// What a module declares: an ID, a kind, and optional dependencies.
+type Resource struct {
+    ID        string
+    Kind      ResourceKind
+    DependsOn []string
+}
+
+// A pending change — never authored directly, always computed by Diff().
+type PendingOp struct {
+    ResourceID  string
+    Description string
+    Execute     func() error
+}
+```
+
+`ComputeDiff` topologically sorts resources by `DependsOn` and calls
+`Diff()` on each once — used by `plan` and `doctor`, where nothing has
+converged yet so a single batch pass is safe. `DiffAndExecute` interleaves
+diff-then-immediately-execute per resource in dependency order — required
+by `apply`, because a dependent resource must see the *real* post-execution
+state of what it depends on, not a stale batch diff.
 
 ## Module Interface
 
-Every module implements a simple interface:
+A module is just a plain Go function returning a resource list — no
+interface to implement, no registration boilerplate beyond adding one
+line to the registry:
 
-```bash
-# modules/module_foo.sh
+```go
+// engine/modules/foo.go
+package modules
 
-db_module_foo_register() {
-    db_register_module "foo" \
-        "db_module_foo_plan" \
-        "db_module_foo_apply" \
-        "db_module_foo_doctor"  # optional
-}
-
-db_module_foo_plan() {
-    # Read config with db_yaml_get
-    # Output what would change
-    db_log_info "Would do X, Y, Z"
-}
-
-db_module_foo_apply() {
-    # Do the actual work, idempotently
-    # Use core helpers: db_write_file, db_upsert_block, etc.
-}
-
-db_module_foo_doctor() {
-    # Optional: diagnostics for this module
+func Foo(cfg *config.Config) []engine.Resource {
+    if cfg.Get("foo.enable", "true") != "true" {
+        return nil
+    }
+    return []engine.Resource{
+        {ID: "foo_config", Kind: kinds.File{Path: cfg.Get("foo.path", "~/.foorc"), Content: renderFooConfig(cfg)}},
+    }
 }
 ```
 
-## Core Framework
-
-### Module Registry
-
-The registry (`core_modules.sh`) maintains:
-
-- `DB_MODULE_NAMES`: Array of module names
-- `DB_MODULE_PLAN_FUNC`: Map of name → plan function
-- `DB_MODULE_APPLY_FUNC`: Map of name → apply function
-- `DB_MODULE_DOCTOR_FUNC`: Map of name → doctor function (optional)
-
-Modules register themselves during `db_load_modules()`.
-
-### Config System
-
-Uses `yq` (preferred) or Python3 with PyYAML (fallback) to parse `~/.devboost.yaml`:
-
-```bash
-# Get config value with default
-local value=$(db_yaml_get '.zsh.enable' 'true')
-
-# Get list (space-separated)
-local pkgs=$(db_yaml_get_list '.packages.base[]')
+```go
+// engine/modules/registry.go
+var All = []Module{
+    // ...
+    {Name: "foo", Resources: func(cfg *config.Config, os kinds.OS) []engine.Resource { return Foo(cfg) }},
+}
 ```
 
-### File Operations
+That's it — `plan`, `apply`, and `doctor` all pick it up automatically
+through `AllResources`/`Doctor`, with zero separate plan/apply logic to
+keep in sync.
 
-Core file helpers ensure safety:
+## Why Go Struct Literals, Not YAML, for Resource Declarations
 
-- `db_write_file`: Writes file with backup
-- `db_upsert_block`: Replaces block between markers in existing file
-- `db_remove_block`: Removes block between markers
-- `db_backup_file`: Creates timestamped backup
+Module resource declarations are plain Go struct literals — not a DSL,
+not YAML. This was a deliberate choice made once Go was already settled
+on as the implementation language (the *user-facing* `~/.devboost.yaml`
+config file is unrelated and stays YAML — see `config/config.go`). The
+reasoning: most of devboost's code will be read and modified by coding
+agents more than by hand, so "not fluent in Go" carries little weight —
+what matters is readability and correctness, and Go struct literals get
+full compiler and type checking that a YAML-based DSL would need to
+reinvent. See git history for the fuller discussion (Docker Compose was
+considered as a counter-example favoring YAML, but ultimately devboost's
+"a module should be trivial to add, optimized on boilerplate" goal was
+better served by plain typed Go).
 
-### OS Abstraction
+## Resource Kinds ("Providers")
 
-`core_os.sh` provides:
+Each kind in `engine/kinds/` is a small, reusable, parametrized primitive
+— the equivalent of a Terraform provider resource type. Shelling out
+inside a kind's `Diff`/apply is fine, and often correct, when the target
+tool's own CLI is the best available diff/apply primitive (`GitConfig`
+shells to `git config`, `Package` shells to `brew`/`apt`/`dnf`/`pacman`) —
+never as a shortcut to skip writing a real diff.
 
-- `db_detect_os`: Sets `DB_OS` (darwin, linux-ubuntu, linux-fedora, linux-arch)
-- `db_install_packages`: Installs packages via appropriate package manager
-- `db_command_exists`: Checks if command is available
+`CommandGuarded` is the one deliberate escape hatch, for state that
+genuinely doesn't fit any typed kind (see `engine/kinds/commandguarded.go`
+for the full reasoning). A module still only ever declares data — `{ID,
+Params, Wants}` — never imperative logic at the declaration site. An
+unregistered `ID` fails loudly (not a silent no-op): adding a new use
+requires writing a real Go implementation in `kinds`, registered via
+`RegisterCommand`, the same amount of real work as adding a proper kind.
+This is intentional friction — it must never be the easy path when a
+typed kind is achievable instead.
 
-## Build Process
+## Dependencies
 
-`build.sh` concatenates files in order:
+Resources declare explicit `DependsOn` when one resource's correctness
+depends on another having already run — e.g. `security`'s managed block
+depends on `zsh`'s full-file render, because writing the block first and
+then having zsh's `File` resource overwrite the whole file would silently
+destroy it. `engine.ComputeDiff`/`DiffAndExecute` topologically sort on
+this, with cycle and unknown-dependency detection. This replaced the bash
+version's implicit, hand-maintained module registration order.
 
-1. Entry point (`devboost.sh.in`)
-2. Core framework (in dependency order)
-3. All modules
-4. Module registration code
-5. Main execution wrapper
+## doctor: Tool-First Grouping
 
-Result: Single `devboost.sh` file (~1280 lines) that's self-contained.
+`doctor` diffs every module's combined resource graph in one pass (not
+per-module in isolation — an earlier version did that and broke the
+moment a cross-module `DependsOn` was added, see the module's tests for
+the regression coverage), then groups the results back by owning module
+for display. This keeps output readable as dedup checks and diagnostics
+accumulate — ten tools with several checks each still reads as ten
+grouped sections, not a flat list of every individual check.
+
+## Module Rationale Documentation
+
+Every module that picks a specific tool documents *why* directly above
+its constructor function — adoption/reputation research, first-party
+guidance where it conflicts with common practice, and an honest
+confidence level (well-documented consensus vs. taste vs. now-questionable).
+See `.agents/skills/devboost-module-author/SKILL.md` for the process, and
+any module file (e.g. `engine/modules/git.go`, `engine/modules/corepack.go`)
+for real examples — including examples of a default that research
+revealed was worth actually fixing, not just caveat-ing.
 
 ## Adding a New Module
 
-1. Create `modules/module_neovim.sh`:
-
-```bash
-db_module_neovim_register() {
-    db_register_module "neovim" \
-        "db_module_neovim_plan" \
-        "db_module_neovim_apply"
-}
-
-db_module_neovim_plan() {
-    db_log_info "Would configure Neovim"
-}
-
-db_module_neovim_apply() {
-    local config_dir="$HOME/.config/nvim"
-    db_ensure_dir "$config_dir"
-    # ... configure neovim
-}
-```
-
-2. Add registration call to `build.sh`:
-
-```bash
-cat modules/module_neovim.sh
-echo ""
-# ... in registration section:
-db_module_neovim_register
-```
-
-3. Rebuild: `./build.sh`
-
-That's it! The module is now part of the system.
+1. Create `engine/modules/foo.go` with a `Foo(cfg *config.Config) []engine.Resource` function.
+2. Research the tool choice (see the module-author skill) and write the rationale as a doc comment above `Foo`.
+3. Add a test file `foo_test.go` covering the enable-gate and default-resource-shape.
+4. Register it in `engine/modules/registry.go`'s `All` slice.
+5. Run `go build ./... && go test ./...`.
+6. Add any new config keys to `.devboost.yaml.example`.
 
 ## Design Principles
 
-1. **Idempotency**: All operations are safe to re-run
-2. **Non-destructive**: Never overwrite user files directly
-3. **Config-driven**: Defaults in code, overrides in YAML
-4. **Modular**: Each module is independent
-5. **Extensible**: Adding features = adding modules
+1. **Idempotency**: structural, not per-module discipline — `ComputeDiff` returning no pending ops *is* "nothing to do."
+2. **Non-destructive**: never overwrite user files directly — managed blocks/includes, backups before every mutating write.
+3. **Config-driven**: sensible defaults in code, overrides in `~/.devboost.yaml`.
+4. **Explicit dependencies**: `DependsOn`, not registration order, decides execution order.
+5. **One diff function**: `plan` and `apply` can never narrate a different change than what actually happens.
+
+## Bootstrap Distribution
+
+`install.sh` (repo root) is a small, pure-POSIX-shell dispatcher modeled
+on rustup's `rustup-init.sh`: detect OS/arch (including the Rosetta 2
+edge case on Apple Silicon), download the matching prebuilt binary, exec
+it. No application logic lives there — everything real is in the Go
+binary. Cross-compilation is currently local-only (`GOOS`/`GOARCH` builds
+run by hand); no GitHub Actions release pipeline exists yet, so no
+prebuilt binaries are published — build from source until one does (see
+[README.md](README.md#-quick-start)).
 
 ## Future Enhancements
 
-- Template system for complex configs
-- Module dependencies (e.g., zsh depends on znap)
-- Parallel module execution
-- Better diff/plan output
-- Module-specific uninstall hooks
-
+- Publish real cross-platform release binaries and wire `install.sh`'s default URL to a working release.
+- In-tool config-schema-version warning (bash version had this; not yet ported — see [CHANGELOG.md](CHANGELOG.md)).
+- Async/prefetched `apt-get update` once the CLI orchestrates multiple resources concurrently.
+- Periodic adversarial re-review of each module's tool choice against current ecosystem state (see the module-author skill).

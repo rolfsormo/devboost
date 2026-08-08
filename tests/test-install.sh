@@ -47,7 +47,7 @@ case "$ARCH" in
 esac
 
 if [[ -n "$PLATFORM_OS" && -n "$PLATFORM_ARCH" ]]; then
-    (cd "$PROJECT_ROOT" && go build -o "$TMPDIR_TEST/devboost-${PLATFORM_OS}-${PLATFORM_ARCH}" ./cmd/devboost-v2)
+    (cd "$PROJECT_ROOT" && go build -o "$TMPDIR_TEST/devboost-${PLATFORM_OS}-${PLATFORM_ARCH}" ./cmd/devboost)
 
     PORT=8143
     (cd "$TMPDIR_TEST" && python3 -m http.server "$PORT" >/dev/null 2>&1) &
@@ -69,7 +69,7 @@ if [[ -n "$PLATFORM_OS" && -n "$PLATFORM_ARCH" ]]; then
     test_assert_contains \
         "install.sh execs the real binary (--version output present)" \
         "$output" \
-        "devboost 2.0.0-dev"
+        "devboost 2.0.0"
 
     kill "$SERVER_PID" 2>/dev/null || true
     wait "$SERVER_PID" 2>/dev/null || true

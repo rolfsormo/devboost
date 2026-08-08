@@ -8,6 +8,27 @@ with OS/tooling-specific adjustments.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-08-08
+
+### Changed
+- **Full rewrite from bash to Go.** Replaced the hand-written bash `plan`/`apply` function pairs per module (which had already drifted out of sync in production — see the `1.3.0` double-sourcing fix) with a Terraform-inspired typed-resource engine: modules declare desired state as `engine.Resource` values, and one shared function (`engine.ComputeDiff`) computes what's out of sync for both `plan` and `apply`. See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design. The CLI entry point is now a single Go binary (`devboost`) instead of a concatenated `devboost.sh`; `install.sh` is a new pure-POSIX-shell bootstrap dispatcher (rustup-style) that fetches and execs the binary.
+- **All prior functionality ported**: `apply`, `plan`, `doctor` (now grouped tool-first by module), `uninstall`, `clean`, `migrate-from-oh-my-zsh`, and every module (znap, zsh, starship, tmux, mise, pkg, git/delta, corepack, direnv, services/atuin, security, and the zinit/asdf/nvm dedup modules).
+- **direnv**: no longer writes a `use_mise` `.direnvrc` helper by default. mise's own docs call that integration pattern deprecated; `mise activate zsh` (already run globally) fully replaces it via mise's own directory-change hook. direnv stays installed for plain per-directory env vars; `direnv.content` still lets a user opt into managed `.direnvrc` content.
+- **corepack**: now installs itself via `npm install -g corepack` when missing, instead of silently treating absence as "nothing to do." Node 25+ no longer bundles corepack (Node's own TSC decision), so absence is now the expected case on a current toolchain — this matches the exact replacement workflow Node's TSC decision names explicitly.
+
+### Added
+- `devboost clean --dry-run` support (previously apply-only in the bash version's port).
+- Every module that picks a specific tool now documents why, as a doc comment above its constructor — adoption/reputation research, first-party guidance, and an honest confidence level (well-documented consensus vs. taste vs. now-questionable). See `.agents/skills/devboost-module-author/SKILL.md` for the process used to write these.
+- Explicit `DependsOn` on resources — a real dependency graph with topological sort and cycle detection, replacing the bash version's implicit, hand-maintained module registration order.
+
+### Removed
+- The bash implementation (`core/`, `modules/`, `build.sh`, `devboost.sh`, `devboost.sh.in`) and its bash-specific test suite.
+- `system.package_manager`, `zsh.plugin_manager`, `packages.optional`, and `tmux.plugins` config keys, which were either bash-only no-ops or not carried forward as real config surface in the Go engine (znap and TPM's own plugin set are still the actual behavior — see `.devboost.yaml.example`).
+
+### Known gaps carried forward from the bash version (not yet re-implemented)
+- Automatic in-tool warning when a user's config predates the current MAJOR version (see [AGENTS.md](AGENTS.md#5-versioning-strategy)).
+- No published release binaries yet — cross-compilation is local-only; build from source until a release exists (see [README.md](README.md)).
+
 ## [1.4.0] - 2026-08-08
 
 ### Added

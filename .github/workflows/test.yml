@@ -7,32 +7,29 @@ on:
     branches: [ main ]
 
 jobs:
-  test-linux:
-    name: Test on ${{ matrix.distro }}
-    runs-on: ubuntu-latest
+  test:
+    name: Build & test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        distro: [ubuntu, debian, fedora, arch]
-    
+        os: [ubuntu-latest, macos-latest]
+
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Build devboost.sh
-        run: ./build.sh
-      
-      - name: Test on ${{ matrix.distro }}
-        run: ./tests/test-linux.sh ${{ matrix.distro }}
-  
-  test-macos:
-    name: Test on macOS
-    runs-on: macos-latest
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Build devboost.sh
-        run: ./build.sh
-      
-      - name: Test on macOS
-        run: ./tests/test-macos.sh
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test (short — skips the slow real end-to-end apply)
+        run: go test ./... -short
+
+      - name: Test install.sh bootstrap dispatcher
+        run: ./tests/test-install.sh
 

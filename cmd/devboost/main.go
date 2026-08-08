@@ -1,7 +1,9 @@
-// Command devboost-v2 is the Go-engine CLI, coexisting with the bash
-// tool (devboost.sh) during the v2 migration. Not yet wired into a
-// bootstrap/release pipeline — see the v2 architecture proposal and
-// issue #4 for the migration plan and cutover criteria.
+// Command devboost is the CLI: a Terraform-inspired typed-resource
+// engine that replaced the original bash implementation (a hand-written
+// plan/apply function pair per module, which had already drifted out of
+// sync in production). One diff function (engine.ComputeDiff) now
+// backs both plan and apply, closing that whole bug class structurally
+// rather than by convention.
 package main
 
 import (
@@ -16,7 +18,7 @@ import (
 
 const usage = `devboost - Bootstrap a modern dev environment
 
-Usage: devboost-v2 [COMMAND] [OPTIONS]
+Usage: devboost [COMMAND] [OPTIONS]
 
 Commands:
   apply                     Converge machine to config (default)
@@ -34,7 +36,7 @@ Options:
   --version        Show version
 `
 
-const version = "2.0.0-dev"
+const version = "2.0.0"
 
 type flags struct {
 	cmd        string

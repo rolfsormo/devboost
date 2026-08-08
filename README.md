@@ -5,8 +5,11 @@
 Transform your macOS or Linux machine into a productivity powerhouse with a single command. devboost installs and configures the best-in-class tools for modern development, all while preserving your existing customizations.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/devboost.sh | bash -s -- apply
+git clone https://github.com/rolfsormo/devboost.git && cd devboost
+go build -o devboost ./cmd/devboost && ./devboost apply
 ```
+
+> No published release yet, so build from source for now (requires Go — see [Building from Source](#building-from-source)). Once a release exists, this becomes a one-line `curl | sh` install — see [Quick Start](#-quick-start) for what that'll look like.
 
 > **✨ What you get:** A beautiful shell (zsh + starship), smart navigation (zoxide, fzf), powerful search (ripgrep, fd), modern replacements (bat, eza, dust, duf, procs), seamless toolchain management (mise), and a fully configured tmux setup — all in under 5 minutes.
 
@@ -27,40 +30,46 @@ Setting up a development environment is tedious. You spend hours installing tool
 
 ## 🚀 Quick Start
 
-### Install & Run (Recommended)
+### Building from Source (Recommended for now)
+
+devboost doesn't publish prebuilt release binaries yet — cross-compilation
+is currently local-only (see [ARCHITECTURE.md](ARCHITECTURE.md)) and no
+GitHub release has been cut. Build from source instead, which just needs
+Go installed:
 
 ```bash
-# Download and run in one command
-curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/devboost.sh | bash -s -- apply
+git clone https://github.com/rolfsormo/devboost.git
+cd devboost
+go build -o devboost ./cmd/devboost
+./devboost apply
 ```
 
 **That's it!** Your development environment is being set up. Grab a coffee ☕ — this takes a few minutes.
 
-### Alternative: Review First (More Secure)
+Copy the resulting `devboost` binary to somewhere on your `PATH` (e.g.
+`~/bin/devboost`) to run it from anywhere afterward.
+
+### Install & Run via curl (once a release exists)
+
+Once a real GitHub release is published, this becomes the recommended
+install path — a small, pure-POSIX-shell bootstrap dispatcher
+(`install.sh`, the same pattern rustup uses) that detects your
+OS/architecture, downloads the matching prebuilt `devboost` binary, and
+execs it with whatever arguments you passed. No application logic lives
+in the shell script itself, which is what makes it small enough to
+actually read before running:
 
 ```bash
-# Download the script
-curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/devboost.sh -o /tmp/devboost.sh
-
-# Review it (recommended)
-less /tmp/devboost.sh
-
-# Run it
-bash /tmp/devboost.sh apply
+# Download and run in one command
+curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/install.sh | sh -s -- apply
 ```
 
-### Install to PATH
+Or review first before piping to a shell:
 
 ```bash
-# Download to a permanent location
-curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/devboost.sh -o ~/bin/devboost
-chmod +x ~/bin/devboost
-
-# Ensure ~/bin is in your PATH
-export PATH="$HOME/bin:$PATH"
-
-# Now run from anywhere
-devboost apply
+curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/install.sh -o /tmp/install.sh
+less /tmp/install.sh          # review it — it's short
+sh /tmp/install.sh apply
 ```
 
 ---
@@ -191,7 +200,6 @@ devboost [COMMAND] [OPTIONS]
 - `--config FILE` - Custom config file (default: `~/.devboost.yaml`)
 - `--dry-run` - Show what would be done without making changes
 - `--yes` - Confirm a destructive command (required by `migrate-from-oh-my-zsh`)
-- `--verbose, -v` - Enable verbose output
 - `--help, -h` - Show help message
 - `--version` - Show version
 
@@ -296,23 +304,27 @@ Want to contribute a screenshot? Show off:
 
 ## 🧪 Testing
 
-This project has been tested on:
-- ✅ macOS (with Podman for Linux testing)
-- ✅ Ubuntu/Debian (via Docker/Podman)
-- ✅ Fedora (via Docker/Podman)
-- ⚠️ Arch Linux (skipped on ARM64 due to image limitations)
-
-The test suite automatically uses Docker or Podman (installing Podman if needed). See [tests/README.md](tests/README.md) for details.
+devboost is a Go binary with a normal Go test suite (`go test ./...`),
+including an end-to-end test that builds the real binary and runs
+`plan`/`apply`/`doctor` against a sandboxed `HOME`. See
+[tests/README.md](tests/README.md) for details.
 
 ---
 
 ## 📋 Requirements
 
-- bash 3.2+ (macOS system bash works out of the box)
+To build from source (currently the only way to install — see [Quick Start](#-quick-start)):
 - git
-- curl
+- Go (see `go.mod` for the minimum version)
+
+To run the built binary:
+- git (devboost itself shells out to it for clones/config)
 - sudo (for package installation on Linux)
-- yq or python3 with PyYAML (optional — falls back to basic parser)
+
+Once a release exists, the `install.sh` path additionally needs curl or
+wget to fetch the prebuilt binary — no Go toolchain required at that
+point. No bash version requirement, no YAML-parser dependency — devboost
+is a single self-contained binary with Go's YAML support built in.
 
 ### Supported Operating Systems
 
@@ -327,17 +339,7 @@ The test suite automatically uses Docker or Podman (installing Podman if needed)
 
 ### Package Installation Failures
 
-Package installation output is suppressed for cleaner logs. If a package fails to install, the full error output will be displayed to help you troubleshoot.
-
-Some packages may not be available in all package managers. You can install missing packages manually or add them to your config's `packages.optional` list.
-
-### YAML Parsing Issues
-
-Install `yq` for better YAML parsing:
-- macOS: `brew install yq`
-- Linux: See [yq installation](https://github.com/mikefarah/yq#install)
-
-Python 3 with PyYAML works as a fallback.
+If a package fails to install, the full error output is shown so you can troubleshoot. Some packages may not be available in all package managers — install missing packages manually, or adjust your config's `packages.base` list.
 
 ### Tmux Plugins Not Installing
 
@@ -398,14 +400,17 @@ devboost follows **Semantic Versioning**:
 
 - **PATCH** (1.1.0 → 1.1.1): Bug fixes, safe to upgrade
 - **MINOR** (1.1.0 → 1.2.0): New features, safe to upgrade
-- **MAJOR** (1.1.0 → 2.0.0): Breaking changes, review changelog
+- **MAJOR** (1.1.0 → 2.0.0): Breaking changes, review [CHANGELOG.md](CHANGELOG.md)
 
-The script will warn if your config file is from an older MAJOR version.
+Check `devboost --version` and the changelog before upgrading across a
+MAJOR version. (Automatic in-tool warnings for an outdated config version
+aren't implemented yet — see the changelog manually for now.)
 
 ---
 
 **Ready to boost your development environment?** 🚀
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/devboost.sh | bash -s -- apply
+git clone https://github.com/rolfsormo/devboost.git && cd devboost
+go build -o devboost ./cmd/devboost && ./devboost apply
 ```
