@@ -181,6 +181,13 @@ func init() {
 //     need periodic bumping; there's no equivalent to Node's clearly-
 //     defined LTS channel for either. Treat these two as needing
 //     active upkeep, not "set once and correct forever."
+//   - Checked 2026-08-08 (docs/tool-choice-review-2026-08.md): python
+//     3.14 is still the current stable line, no action needed. go 1.26
+//     is not yet stale (the "1.26" channel auto-resolves to the
+//     current patched 1.26.5), but Go 1.27's release notes are already
+//     published — GA is imminent. Bump this pin to "1.27" once that
+//     release actually ships; don't guess a version number ahead of
+//     release.
 func Mise(cfg *config.Config) []engine.Resource {
 	if cfg.Get("toolchains.enable_mise", "true") != "true" {
 		return nil

@@ -21,17 +21,31 @@ var defaultBasePackages = []string{
 // Why these specific packages: each is a Rust/Go-rewrite-era CLI tool
 // with substantial community adoption as a faster/friendlier
 // alternative to a POSIX default — ripgrep over grep, fd over find, bat
-// over cat, eza over ls, zoxide over cd, dust/duf/procs over
-// du/df/ps — the "modern CLI replacement" trend is well-documented and
-// these specific tools are consistently the named examples in that
-// space, not an arbitrary pick. jq/yq (JSON/YAML querying), fzf
-// (fuzzy-finder, itself a dependency of a lot of shell tooling
-// including atuin's search UX), lazygit (terminal git UI), and
-// git-delta/mise/atuin/starship/tmux are each covered by their own
-// module's rationale where the choice is more specific than "popular
-// modern CLI tool." zsh itself is here because devboost's shell tooling
-// (znap, starship prompt integration, the .zshrc.devboost render) is
-// zsh-specific — see zsh.go.
+// over cat, eza over ls, zoxide over cd, dust over du — the "modern CLI
+// replacement" trend is well-documented and these specific tools are
+// consistently the named examples in that space, not an arbitrary
+// pick. jq/yq (JSON/YAML querying), fzf (fuzzy-finder, itself a
+// dependency of a lot of shell tooling including atuin's search UX),
+// lazygit (terminal git UI), and git-delta/mise/atuin/starship/tmux are
+// each covered by their own module's rationale where the choice is
+// more specific than "popular modern CLI tool." zsh itself is here
+// because devboost's shell tooling (znap, starship prompt integration,
+// the .zshrc.devboost render) is zsh-specific — see zsh.go.
+//
+// duf and procs verified separately during the 2026-08-08 adversarial
+// review (docs/tool-choice-review-2026-08.md), with lower confidence
+// than the rest of this list:
+//   - duf: still the largest tool in the df-replacement niche (which
+//     has very few entrants at all), but its last release was Sep
+//     2025 and recent commits are dependency bumps only — maintenance
+//     has visibly slowed. No better alternative exists yet; worth
+//     watching, not replacing.
+//   - procs: the right pick for its actual niche — non-interactive,
+//     scriptable ps output — distinct from interactive process
+//     monitors (btop, bottom) that dwarf it in stars but solve a
+//     different problem. Its own community is real but noticeably
+//     smaller than ripgrep/fd/bat's; don't read its inclusion here as
+//     ripgrep-level consensus.
 func Pkg(cfg *config.Config) []engine.Resource {
 	names := cfg.GetList("packages.base")
 	if len(names) == 0 {

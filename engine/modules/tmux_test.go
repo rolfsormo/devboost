@@ -72,6 +72,27 @@ func TestRenderTmuxBlockDefaults(t *testing.T) {
 	}
 }
 
+func TestRenderTmuxBlockOmitsLoggingPluginByDefault(t *testing.T) {
+	cfg := loadFixtureConfig(t, "")
+	block := renderTmuxBlock(cfg, "/tpm/path")
+	if strings.Contains(block, "tmux-logging") {
+		t.Fatalf("expected tmux-logging plugin omitted by default, got %q", block)
+	}
+	for _, want := range []string{"tmux-resurrect", "tmux-continuum", "tmux-yank"} {
+		if !strings.Contains(block, want) {
+			t.Fatalf("expected %s still bundled by default, got %q", want, block)
+		}
+	}
+}
+
+func TestRenderTmuxBlockIncludesLoggingPluginWhenEnabled(t *testing.T) {
+	cfg := loadFixtureConfig(t, "tmux:\n  plugins:\n    logging:\n      enable: true\n")
+	block := renderTmuxBlock(cfg, "/tpm/path")
+	if !strings.Contains(block, "tmux-plugins/tmux-logging") {
+		t.Fatalf("expected tmux-logging plugin present when enabled, got %q", block)
+	}
+}
+
 func TestTmuxPluginsResourceCarriesTPMPathAsParams(t *testing.T) {
 	cfg := loadFixtureConfig(t, "tmux:\n  tpm_path: /custom/tpm\n")
 	got := Tmux(cfg)

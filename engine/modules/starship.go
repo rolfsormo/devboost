@@ -55,13 +55,20 @@ disabled = true
 //
 // Per-setting confidence varies — not every value here has strong
 // external consensus behind it, and this doc comment says so honestly
-// rather than post-hoc justifying every number:
-//   - add_newline = false and command_timeout = 700 are common,
-//     reasonable choices in shared starship configs, but not something
-//     with a single documented "best practice" behind them — treat as
-//     "sensible default," not "researched consensus."
-//   - truncation_length = 3 is similarly a matter of taste; other
-//     popular configs use anywhere from 2 to full-path.
+// rather than post-hoc justifying every number. Verified against
+// starship's own current defaults during the 2026-08-08 adversarial
+// review (see docs/tool-choice-review-2026-08.md):
+//   - truncation_length = 3 matches starship's own upstream default
+//     exactly — this one IS the researched-consensus case, not just a
+//     reasonable pick.
+//   - command_timeout = 700 is a deliberate +200ms deviation from
+//     starship's own default of 500 — not wrong, but a real deviation,
+//     not a community-standard number. No external justification found
+//     for the specific value; treat as "we chose to be more lenient,"
+//     not "this is what everyone uses."
+//   - add_newline = false overrides starship's own default of true.
+//     Genuinely a taste call — no consensus found either way in shared
+//     configs.
 //   - Per-language symbols/styles and [package] disabled = true are
 //     mostly about visual noise reduction and match common community
 //     presets, but again no single canonical source to point to.

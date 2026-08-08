@@ -80,15 +80,21 @@ func TestRenderZshDevboostNeverCallsCompinitDirectly(t *testing.T) {
 func TestRenderAtuinConfigDefault(t *testing.T) {
 	cfg := loadFixtureConfig(t, "")
 	got := renderAtuinConfig(cfg)
-	if !strings.Contains(got, `filter_mode = "directory"`) {
-		t.Fatalf("expected directory as default filter_mode, got %q", got)
+	if !strings.Contains(got, `filter_mode = "global"`) {
+		t.Fatalf("expected global as default filter_mode (matches atuin's own upstream default), got %q", got)
+	}
+	if !strings.Contains(got, `filter_mode_shell_up_key_binding = "directory"`) {
+		t.Fatalf("expected up-arrow recall scoped to directory by default, got %q", got)
 	}
 }
 
 func TestRenderAtuinConfigCustomFilterMode(t *testing.T) {
-	cfg := loadFixtureConfig(t, "zsh:\n  history:\n    atuin:\n      filter_mode: global\n")
+	cfg := loadFixtureConfig(t, "zsh:\n  history:\n    atuin:\n      filter_mode: session\n      filter_mode_shell_up_key_binding: workspace\n")
 	got := renderAtuinConfig(cfg)
-	if !strings.Contains(got, `filter_mode = "global"`) {
+	if !strings.Contains(got, `filter_mode = "session"`) {
 		t.Fatalf("expected configured filter_mode, got %q", got)
+	}
+	if !strings.Contains(got, `filter_mode_shell_up_key_binding = "workspace"`) {
+		t.Fatalf("expected configured filter_mode_shell_up_key_binding, got %q", got)
 	}
 }

@@ -62,8 +62,12 @@ zsh:
       # Filter mode controls how command history is shared between shells
       # Options: global (all shells), host (same machine), session (isolated),
       #          directory (same folder), workspace (same git repo)
-      # Default: directory - context-specific history preferred by developers
-      filter_mode: directory
+      # Default: global for interactive ctrl-r search (matches atuin's own
+      # upstream default). filter_mode_shell_up_key_binding below separately
+      # scopes just the up-arrow key to directory, for quick context-local
+      # recall without restricting ctrl-r search.
+      filter_mode: global
+      filter_mode_shell_up_key_binding: directory
   fzf:
     enable: true
     default_command_files: "fd --type f --hidden --follow --exclude .git"

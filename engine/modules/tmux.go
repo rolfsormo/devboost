@@ -23,6 +23,10 @@ func onOff(cfg *config.Config, key, def string) string {
 }
 
 func renderTmuxBlock(cfg *config.Config, tpmPath string) string {
+	var loggingPlugin string
+	if cfg.Get("tmux.plugins.logging.enable", "false") == "true" {
+		loggingPlugin = "set -g @plugin 'tmux-plugins/tmux-logging'\n"
+	}
 	return fmt.Sprintf(`set -g base-index %s
 setw -g pane-base-index %s
 set -g mouse %s
@@ -33,8 +37,7 @@ set -g @plugin 'tmux-plugins/tpm'
 set -g @plugin 'tmux-plugins/tmux-resurrect'
 set -g @plugin 'tmux-plugins/tmux-continuum'
 set -g @plugin 'tmux-plugins/tmux-yank'
-set -g @plugin 'tmux-plugins/tmux-logging'
-set -g @continuum-restore '%s'
+%sset -g @continuum-restore '%s'
 set -g @resurrect-capture-pane-contents '%s'
 run '%s/tpm'`,
 		cfg.Get("tmux.settings.base_index", "1"),
@@ -43,6 +46,7 @@ run '%s/tpm'`,
 		cfg.Get("tmux.settings.history_limit", "50000"),
 		cfg.Get("tmux.settings.escape_time", "0"),
 		onOff(cfg, "tmux.settings.focus_events", "true"),
+		loggingPlugin,
 		onOff(cfg, "tmux.settings.continuum_restore", "true"),
 		onOff(cfg, "tmux.settings.resurrect_capture_pane_contents", "true"),
 		tpmPath,
@@ -77,9 +81,13 @@ func init() {
 // competing option with comparable adoption. tmux-resurrect +
 // tmux-continuum (session persistence across restarts/reboots) and
 // tmux-yank (system-clipboard integration) are consistently the
-// highest-adoption plugins in shared tmux configs; tmux-logging is a
-// smaller, more niche addition included for convenience rather than
-// strong external consensus.
+// highest-adoption plugins in shared tmux configs, installed
+// unconditionally. tmux-logging has 3-4x less adoption than yank (per
+// live GitHub star counts checked 2026-08-08) and is absent from most
+// "essential tmux setup" roundups — not consensus-backed enough to
+// bundle by default, so it's gated behind
+// tmux.plugins.logging.enable (default false) instead. See
+// docs/tool-choice-review-2026-08.md for the review this came from.
 //
 // escape-time = 0 (tmux.settings.escape_time default) is the one
 // setting here with unambiguous, widely-documented justification: tmux
