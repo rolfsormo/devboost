@@ -6,6 +6,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,10 +52,18 @@ func DefaultPath() string {
 }
 
 // Get reads a dotted key path (e.g. "zsh.znap_path"), returning def if
-// the key or any intermediate segment is absent, or isn't a string.
-// String values (both real ones and def itself) are expanded for a
-// leading ~, since defaults like "~/.zsh-snap" need that too — expansion
-// happens exactly once, regardless of which path returned the value.
+// the key or any intermediate segment is absent. String values (both
+// real ones and def itself) are expanded for a leading ~, since defaults
+// like "~/.zsh-snap" need that too — expansion happens exactly once,
+// regardless of which path returned the value.
+//
+// A non-string scalar (bool, int, float — e.g. "enable: false" written
+// as a real YAML boolean, not a quoted string) is stringified the same
+// way the bash tool's yq-based reader renders it in plain output ("true"/
+// "false", plain decimal), so config authors can write natural YAML
+// without needing to know devboost's Get treats everything as text
+// underneath. A map or list value (wrong shape for a scalar key) falls
+// back to def, same as a missing key.
 func (c *Config) Get(dottedKey string, def string) string {
 	return expandHome(c.get(dottedKey, def))
 }
@@ -72,11 +81,14 @@ func (c *Config) get(dottedKey string, def string) string {
 		}
 		cur = v
 	}
-	s, ok := cur.(string)
-	if !ok {
+	switch v := cur.(type) {
+	case string:
+		return v
+	case bool, int, int64, float64:
+		return fmt.Sprintf("%v", v)
+	default:
 		return def
 	}
-	return s
 }
 
 func expandHome(s string) string {

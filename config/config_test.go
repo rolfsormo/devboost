@@ -67,7 +67,7 @@ func TestGetFallsBackToDefaultWhenIntermediateSegmentAbsent(t *testing.T) {
 	}
 }
 
-func TestGetFallsBackToDefaultWhenValueIsNotAString(t *testing.T) {
+func TestGetFallsBackToDefaultWhenValueIsAMap(t *testing.T) {
 	path := writeFixture(t, "zsh:\n  znap_path:\n    nested: true\n")
 	cfg, err := Load(path)
 	if err != nil {
@@ -75,6 +75,35 @@ func TestGetFallsBackToDefaultWhenValueIsNotAString(t *testing.T) {
 	}
 	if got := cfg.Get("zsh.znap_path", "default"); got != "default" {
 		t.Fatalf("got %q, want default", got)
+	}
+}
+
+// TestGetStringifiesBoolean is a regression test: a real YAML boolean
+// (enable: false, not "enable: \"false\"") was silently ignored by an
+// earlier version of Get — it only recognized string-typed values, so a
+// module reading .git.delta.enable would see the default ("true") even
+// though the user explicitly wrote false. yq (the bash tool's reader)
+// renders YAML booleans as plain "true"/"false" text, so Get must match
+// that, not require users to quote their booleans.
+func TestGetStringifiesBoolean(t *testing.T) {
+	path := writeFixture(t, "git:\n  delta:\n    enable: false\n")
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Get("git.delta.enable", "true"); got != "false" {
+		t.Fatalf("got %q, want %q", got, "false")
+	}
+}
+
+func TestGetStringifiesInteger(t *testing.T) {
+	path := writeFixture(t, "tmux:\n  settings:\n    base_index: 1\n")
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Get("tmux.settings.base_index", "0"); got != "1" {
+		t.Fatalf("got %q, want %q", got, "1")
 	}
 }
 
