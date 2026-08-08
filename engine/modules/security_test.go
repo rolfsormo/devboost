@@ -16,6 +16,20 @@ func TestSecurityDisabled(t *testing.T) {
 	}
 }
 
+// TestSecurityDegradesGracefullyWhenZshDisabled is a regression test for
+// the security_check_alias resource's DependsOn on zsh's
+// zshrc_devboost — that dependency only resolves if both modules' resources
+// are combined in the same list AND zshrc_devboost actually exists in it.
+// zsh.enable: false is a valid, sensible config combination (security
+// alone doesn't need zsh's plugin manager), so Security must not declare
+// a resource whose dependency can never be satisfied.
+func TestSecurityDegradesGracefullyWhenZshDisabled(t *testing.T) {
+	cfg := loadFixtureConfig(t, "zsh:\n  enable: false\n")
+	if got := Security(cfg); len(got) != 0 {
+		t.Fatalf("expected no resources when zsh is disabled (its DependsOn target wouldn't exist), got %v", got)
+	}
+}
+
 func TestSecurityEnabledByDefaultInjectsAliasBlock(t *testing.T) {
 	cfg := loadFixtureConfig(t, "")
 	got := Security(cfg)

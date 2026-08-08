@@ -67,8 +67,28 @@ devboost-check() {
 // Security ports modules/module_security.sh's apply half: injects the
 // devboost-check alias block into .zshrc.devboost, gated on
 // security.enable.
+//
+// This resource explicitly DependsOn zsh's zshrc_devboost resource,
+// because both target the same file and have incompatible write
+// semantics: zsh's is a File (full-content overwrite), security's is a
+// BlockInFile (append/replace a marked block). Confirmed by test: run in
+// the wrong order (security's block written first, zsh's File overwrite
+// second), zsh silently destroys security's block — File has no
+// awareness that BlockInFile already wrote something worth preserving.
+// The dependency guarantees security always runs after zsh has already
+// written the file, so BlockInFile's append-or-replace-between-markers
+// logic is always operating on the real, already-current content.
 func Security(cfg *config.Config) []engine.Resource {
 	if cfg.Get("security.enable", "true") != "true" {
+		return nil
+	}
+	if cfg.Get("zsh.enable", "true") != "true" {
+		// security's alias block targets .zshrc.devboost, which only
+		// exists if the zsh module is enabled — the DependsOn on
+		// zshrc_devboost below assumes that resource exists in the same
+		// combined resource list. Skip cleanly here rather than let
+		// topoSort surface a cryptic "depends on unknown resource" error
+		// for what's actually a sensible, valid config combination.
 		return nil
 	}
 	includeFile := cfg.Get("zsh.include_file", "~/.zshrc.devboost")
@@ -81,6 +101,7 @@ func Security(cfg *config.Config) []engine.Resource {
 				EndMarker:   securityEndMarker,
 				Content:     devboostCheckAlias,
 			},
+			DependsOn: []string{"zshrc_devboost"},
 		},
 	}
 }

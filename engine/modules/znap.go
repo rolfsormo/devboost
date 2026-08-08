@@ -1,6 +1,3 @@
-// Package modules holds the Go-engine ports of devboost's bash modules.
-// This package coexists with the original bash modules/*.sh tree during
-// the v2 migration; it does not replace or modify any bash file.
 package modules
 
 import (
