@@ -19,23 +19,41 @@ const usage = `devboost - Bootstrap a modern dev environment
 Usage: devboost-v2 [COMMAND] [OPTIONS]
 
 Commands:
-  apply       Converge machine to config (default)
-  plan        Show actions without changing anything
-  doctor      Check prerequisites and report per-module findings
-  uninstall   Remove managed files/blocks (leaves user custom files untouched)
+  apply                     Converge machine to config (default)
+  plan                      Show actions without changing anything
+  doctor                    Check prerequisites and report per-module findings
+  uninstall                 Remove managed files/blocks (leaves user custom files untouched)
+  migrate-from-oh-my-zsh    Remove oh-my-zsh and recover .zshrc customizations (needs --yes)
 
 Options:
   --config FILE    Config file path (default: ~/.devboost.yaml)
+  --dry-run        Show what would be done without making changes
+  --yes            Confirm a destructive command (required by migrate-from-oh-my-zsh)
   --help, -h       Show this help message
   --version        Show version
 `
 
 const version = "2.0.0-dev"
 
-func main() {
-	cmd, configPath := parseArgs(os.Args[1:])
+type flags struct {
+	cmd        string
+	configPath string
+	dryRun     bool
+	yes        bool
+}
 
-	cfg, err := config.Load(configPath)
+func main() {
+	f := parseArgs(os.Args[1:])
+
+	if f.cmd == "migrate-from-oh-my-zsh" {
+		if err := modules.MigrateFromOhMyZsh(f.dryRun, f.yes); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	cfg, err := config.Load(f.configPath)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error loading config:", err)
 		os.Exit(1)
@@ -43,17 +61,21 @@ func main() {
 
 	detectedOS := kinds.DetectOS()
 
-	switch cmd {
+	switch f.cmd {
 	case "plan":
 		err = engine.Plan(modules.AllResources(cfg, detectedOS))
 	case "apply":
-		err = engine.Apply(modules.AllResources(cfg, detectedOS))
+		if f.dryRun {
+			err = engine.Plan(modules.AllResources(cfg, detectedOS))
+		} else {
+			err = engine.Apply(modules.AllResources(cfg, detectedOS))
+		}
 	case "doctor":
 		err = runDoctor(cfg, detectedOS)
 	case "uninstall":
 		err = modules.Uninstall(cfg)
 	default:
-		fmt.Fprintf(os.Stderr, "unknown command %q\n\n%s", cmd, usage)
+		fmt.Fprintf(os.Stderr, "unknown command %q\n\n%s", f.cmd, usage)
 		os.Exit(1)
 	}
 
@@ -63,19 +85,18 @@ func main() {
 	}
 }
 
-// parseArgs is intentionally small: a subcommand token plus --config,
-// mirroring the bash tool's db_parse_flags for the subset of flags this
-// CLI currently supports. --dry-run/--verbose/--yes and the
-// migrate-from-oh-my-zsh subcommand are not yet wired here — see task #17.
-func parseArgs(args []string) (cmd string, configPath string) {
-	cmd = "apply"
-	configPath = config.DefaultPath()
+// parseArgs is intentionally small: a subcommand token plus
+// --config/--dry-run/--yes, mirroring the bash tool's db_parse_flags for
+// the subset of flags this CLI currently supports. --verbose is not yet
+// wired (nothing here has a verbose-vs-normal output distinction yet).
+func parseArgs(args []string) flags {
+	f := flags{cmd: "apply", configPath: config.DefaultPath()}
 
 	i := 0
 	if len(args) > 0 {
 		switch args[0] {
-		case "apply", "plan", "doctor", "uninstall":
-			cmd = args[0]
+		case "apply", "plan", "doctor", "uninstall", "migrate-from-oh-my-zsh":
+			f.cmd = args[0]
 			i = 1
 		case "--help", "-h":
 			fmt.Print(usage)
@@ -90,9 +111,13 @@ func parseArgs(args []string) (cmd string, configPath string) {
 		switch args[i] {
 		case "--config":
 			if i+1 < len(args) {
-				configPath = args[i+1]
+				f.configPath = args[i+1]
 				i++
 			}
+		case "--dry-run":
+			f.dryRun = true
+		case "--yes":
+			f.yes = true
 		case "--help", "-h":
 			fmt.Print(usage)
 			os.Exit(0)
@@ -101,7 +126,7 @@ func parseArgs(args []string) (cmd string, configPath string) {
 			os.Exit(0)
 		}
 	}
-	return cmd, configPath
+	return f
 }
 
 // runDoctor computes and prints per-module findings, grouped by module

@@ -79,7 +79,7 @@ func TestFileExecuteBacksUpByDefault(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 
-	dir, err := backupDir()
+	dir, err := DefaultBackupDir()
 	if err != nil {
 		t.Fatal(err)
 	}

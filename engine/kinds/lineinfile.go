@@ -52,7 +52,7 @@ func (l LineInFile) re() (*regexp.Regexp, error) {
 // was ever actually disabled here before, which combined with an
 // unmarked live match means the user peeled the marker off by hand.
 func (l LineInFile) wasEverMarked() (bool, error) {
-	dir, err := backupDir()
+	dir, err := DefaultBackupDir()
 	if err != nil {
 		return false, err
 	}
@@ -183,7 +183,7 @@ func snapshot(path, migrationID, phase string) error {
 	} else if err != nil {
 		return err
 	}
-	dir, err := backupDir()
+	dir, err := DefaultBackupDir()
 	if err != nil {
 		return err
 	}

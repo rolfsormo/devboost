@@ -8,11 +8,13 @@ import (
 	"time"
 )
 
-// backupDir returns ~/.devboost/backups, matching the bash tool's default
-// (DB_BACKUP_DIR). No env-var override yet — the bash version's
+// DefaultBackupDir returns ~/.devboost/backups, matching the bash tool's
+// default (DB_BACKUP_DIR). No env-var override yet — the bash version's
 // --config-adjacent DB_BACKUP_DIR override isn't wired through here since
 // nothing in the Go CLI surface sets it yet; add one if/when that's needed.
-func backupDir() (string, error) {
+// Exported so callers outside this package (migrate-from-oh-my-zsh) can
+// archive things into the same backup root without duplicating the path.
+func DefaultBackupDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
@@ -34,7 +36,7 @@ func BackupFile(path string) error {
 		return err
 	}
 
-	dir, err := backupDir()
+	dir, err := DefaultBackupDir()
 	if err != nil {
 		return err
 	}
@@ -64,4 +66,24 @@ func BackupFile(path string) error {
 		return fmt.Errorf("backup %s: %w", path, err)
 	}
 	return nil
+}
+
+// ArchiveDir moves dir aside into the backup root instead of deleting
+// it, named <basename>-<label>-<timestamp> — ports the bash tool's
+// _db_legacy_archive_dir naming exactly (no extra nesting), reused here
+// by migrate-from-oh-my-zsh for ~/.oh-my-zsh. A no-op if dir doesn't
+// exist (already archived — idempotent).
+func ArchiveDir(dir, label string) error {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return nil
+	}
+	backupRoot, err := DefaultBackupDir()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(backupRoot, 0o755); err != nil {
+		return err
+	}
+	dest := filepath.Join(backupRoot, fmt.Sprintf("%s-%s-%s", filepath.Base(dir), label, time.Now().Format("20060102_150405")))
+	return os.Rename(dir, dest)
 }
