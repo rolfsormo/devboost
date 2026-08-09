@@ -27,7 +27,7 @@ with OS/tooling-specific adjustments.
 
 ### Known gaps carried forward from the bash version (not yet re-implemented)
 - Automatic in-tool warning when a user's config predates the current MAJOR version (see [AGENTS.md](AGENTS.md#5-versioning-strategy)).
-- No published release binaries yet — cross-compilation is local-only; build from source until a release exists (see [README.md](README.md)).
+- Release builds are still cut by hand (no GitHub Actions release pipeline yet) — a [v2.0.0 pre-release](https://github.com/rolfsormo/devboost/releases/tag/v2.0.0) exists with real binaries and a verified `install.sh` flow, but stays pre-release until this merges to `main` (see [README.md](README.md)).
 
 ## [1.4.0] - 2026-08-08
 

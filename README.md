@@ -9,7 +9,7 @@ git clone https://github.com/rolfsormo/devboost.git && cd devboost
 go build -o devboost ./cmd/devboost && ./devboost apply
 ```
 
-> No published release yet, so build from source for now (requires Go — see [Building from Source](#building-from-source)). Once a release exists, this becomes a one-line `curl | sh` install — see [Quick Start](#-quick-start) for what that'll look like.
+> No release on `main` yet, so build from source for now (requires Go — see [Building from Source](#building-from-source)). A [v2.0.0 pre-release](https://github.com/rolfsormo/devboost/releases/tag/v2.0.0) with real prebuilt binaries already exists and the `curl | sh` flow has been verified working end to end against it — see [Quick Start](#-quick-start). It becomes the default, permanent one-liner once this merges to `main`.
 
 > **✨ What you get:** A beautiful shell (zsh + starship), smart navigation (zoxide, fzf), powerful search (ripgrep, fd), modern replacements (bat, eza, dust, duf, procs), seamless toolchain management (mise), and a fully configured tmux setup — all in under 5 minutes.
 
@@ -30,12 +30,11 @@ Setting up a development environment is tedious. You spend hours installing tool
 
 ## 🚀 Quick Start
 
-### Building from Source (Recommended for now)
+### Building from Source (Recommended until this merges to `main`)
 
-devboost doesn't publish prebuilt release binaries yet — cross-compilation
-is currently local-only (see [ARCHITECTURE.md](ARCHITECTURE.md)) and no
-GitHub release has been cut. Build from source instead, which just needs
-Go installed:
+`main` doesn't have `install.sh` yet — this branch (`v2-go-engine`) is
+still an open PR (see [ARCHITECTURE.md](ARCHITECTURE.md)). Build from
+source, which just needs Go installed:
 
 ```bash
 git clone https://github.com/rolfsormo/devboost.git
@@ -49,15 +48,14 @@ go build -o devboost ./cmd/devboost
 Copy the resulting `devboost` binary to somewhere on your `PATH` (e.g.
 `~/bin/devboost`) to run it from anywhere afterward.
 
-### Install & Run via curl (once a release exists)
+### Install & Run via curl (the flow once this merges to `main`)
 
-Once a real GitHub release is published, this becomes the recommended
-install path — a small, pure-POSIX-shell bootstrap dispatcher
-(`install.sh`, the same pattern rustup uses) that detects your
-OS/architecture, downloads the matching prebuilt `devboost` binary, and
-execs it with whatever arguments you passed. No application logic lives
-in the shell script itself, which is what makes it small enough to
-actually read before running:
+Once merged, this becomes the recommended install path — a small,
+pure-POSIX-shell bootstrap dispatcher (`install.sh`, the same pattern
+rustup uses) that detects your OS/architecture, downloads the matching
+prebuilt `devboost` binary, and execs it with whatever arguments you
+passed. No application logic lives in the shell script itself, which is
+what makes it small enough to actually read before running:
 
 ```bash
 # Download and run in one command
@@ -71,6 +69,13 @@ curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/install.sh 
 less /tmp/install.sh          # review it — it's short
 sh /tmp/install.sh apply
 ```
+
+This exact flow (`install.sh` fetching a real prebuilt binary and
+running it) has already been verified end to end against the
+[v2.0.0 pre-release](https://github.com/rolfsormo/devboost/releases/tag/v2.0.0) —
+`plan`/`apply`/`--version` all confirmed working against the real
+downloaded binary. The command above will work as shown once `main`
+has `install.sh` and the release is promoted out of pre-release status.
 
 ---
 
