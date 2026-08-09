@@ -198,12 +198,29 @@ func (p Package) Diff() (*engine.PendingOp, error) {
 	return &engine.PendingOp{
 		Description: fmt.Sprintf("install packages: %s", strings.Join(missing, " ")),
 		Execute: func() error {
-			for _, name := range missing {
-				if err := provider.install(name); err != nil {
-					return err
-				}
-			}
-			return nil
+			return installAll(provider, missing)
 		},
 	}, nil
+}
+
+// installAll attempts every package in names rather than stopping at the
+// first failure: a single package unavailable on this distro's repos
+// (e.g. lazygit isn't in Ubuntu's default apt repos — confirmed
+// installing on a real Ubuntu container) shouldn't block every other
+// package, or every resource that comes after this one in apply's
+// dependency order, from converging. Aggregates failures into one error
+// so the caller learns about all of them, not just the first.
+func installAll(provider packageProvider, names []string) error {
+	var failed, errs []string
+	for _, name := range names {
+		if err := provider.install(name); err != nil {
+			failed = append(failed, name)
+			errs = append(errs, err.Error())
+		}
+	}
+	if len(failed) > 0 {
+		return fmt.Errorf("failed to install %d package(s): %s\n%s",
+			len(failed), strings.Join(failed, ", "), strings.Join(errs, "\n"))
+	}
+	return nil
 }
