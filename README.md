@@ -80,7 +80,7 @@ devboost installs and configures a curated set of modern development tools. Here
 **Shell Configuration:**
 - **[znap](https://github.com/marlonrichert/zsh-snap)** - Fast zsh plugin manager
 - **[zsh-autosuggestions](https://github.com/zsh-users/zsh-autosuggestions)** - Suggests commands as you type
-- **[zsh-syntax-highlighting](https://github.com/zsh-users/zsh-syntax-highlighting)** - Real-time syntax highlighting
+- **[fast-syntax-highlighting](https://github.com/zdharma-continuum/fast-syntax-highlighting)** - Real-time syntax highlighting
 - **[starship](https://github.com/starship/starship)** - Minimal, fast, customizable prompt
 - **Smart aliases** - `ls` → `eza`, `cat` → `bat`, `grep` → `rg`, `find` → `fd`, `du` → `dust`, `df` → `duf`, `ps` → `procs`
 
@@ -123,7 +123,7 @@ devboost installs and configures a curated set of modern development tools. Here
 - **[tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect)** - Restore tmux sessions after restart
 - **[tmux-continuum](https://github.com/tmux-plugins/tmux-continuum)** - Automatic session saving
 - **[tmux-yank](https://github.com/tmux-plugins/tmux-yank)** - Copy to system clipboard
-- **[tmux-logging](https://github.com/tmux-plugins/tmux-logging)** - Logging capabilities
+- **[tmux-logging](https://github.com/tmux-plugins/tmux-logging)** - Logging capabilities (opt-in — set `tmux.plugins.logging.enable: true`, off by default)
 - Sensible defaults (mouse support, large history, etc.)
 
 ### 🔗 Editor & Terminal Integration

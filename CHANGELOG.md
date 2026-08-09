@@ -23,7 +23,10 @@ with OS/tooling-specific adjustments.
 
 ### Removed
 - The bash implementation (`core/`, `modules/`, `build.sh`, `devboost.sh`, `devboost.sh.in`) and its bash-specific test suite.
-- `system.package_manager`, `zsh.plugin_manager`, `packages.optional`, and `tmux.plugins` config keys, which were either bash-only no-ops or not carried forward as real config surface in the Go engine (znap and TPM's own plugin set are still the actual behavior — see `.devboost.yaml.example`).
+- `system.package_manager`, `zsh.plugin_manager`, and `packages.optional` config keys, which were bash-only no-ops not carried forward as real config surface in the Go engine (znap's plugin set is still the actual behavior — see `.devboost.yaml.example`). `tmux.plugins` as a user-supplied plugin *list* was also dropped (TPM's plugin set is fixed in code, not user-configurable), but `tmux.plugins.logging.enable` was added back as a real, live key — see the tool-choice review below.
+
+### Tool-choice review (2026-08-08)
+- First pass of the periodic adversarial tool-choice review — see [docs/tool-choice-review-2026-08.md](docs/tool-choice-review-2026-08.md). Findings implemented directly: swapped `zsh-users/zsh-syntax-highlighting` → `zdharma-continuum/fast-syntax-highlighting`; gated `tmux-logging` behind `tmux.plugins.logging.enable` (default `false`, was previously bundled unconditionally); reverted atuin's `filter_mode` to its own upstream default (`global`) instead of devboost's unjustified `directory` override, adding `filter_mode_shell_up_key_binding: directory` separately for quick up-arrow recall; relabeled a few doc comments (starship's `command_timeout`/`add_newline`, `procs`) to state plainly where they're a deliberate deviation or genuine taste call rather than settled consensus.
 
 ### Known gaps carried forward from the bash version (not yet re-implemented)
 - Automatic in-tool warning when a user's config predates the current MAJOR version (see [AGENTS.md](AGENTS.md#5-versioning-strategy)).

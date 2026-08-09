@@ -94,6 +94,11 @@ tmux:
   enable: true
   tpm_path: ~/.tmux/plugins/tpm
   conf_file: ~/.tmux.conf
+  plugins:
+    logging:
+      # tmux-logging has noticeably lower adoption than the other bundled
+      # plugins (resurrect/continuum/yank) — opt-in rather than default-on.
+      enable: false
   settings:
     base_index: 1
     pane_base_index: 1
