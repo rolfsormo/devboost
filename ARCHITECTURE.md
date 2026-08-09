@@ -200,20 +200,15 @@ revealed was worth actually fixing, not just caveat-ing.
 
 `install.sh` (repo root) is a small, pure-POSIX-shell dispatcher modeled
 on rustup's `rustup-init.sh`: detect OS/arch (including the Rosetta 2
-edge case on Apple Silicon), download the matching prebuilt binary, exec
-it. No application logic lives there — everything real is in the Go
+edge case on Apple Silicon), download the matching prebuilt binary from
+the [latest release](https://github.com/rolfsormo/devboost/releases/latest),
+exec it. No application logic lives there — everything real is in the Go
 binary. Cross-compilation is currently local-only (`GOOS`/`GOARCH` builds
-run by hand, no GitHub Actions release pipeline yet) — a
-[v2.0.0 pre-release](https://github.com/rolfsormo/devboost/releases/tag/v2.0.0)
-with real darwin/linux × arm64/amd64 binaries exists and the full
-`install.sh` fetch-and-exec flow has been verified against it, but it
-stays marked pre-release (and `install.sh`'s default `releases/latest`
-URL stays unresolvable) until this branch merges to `main` — build from
-source until then (see [README.md](README.md#-quick-start)).
+run by hand for each release, no GitHub Actions release pipeline yet).
 
 ## Future Enhancements
 
-- Automate cross-platform release builds (currently done by hand — see Bootstrap Distribution above) and promote the release out of pre-release status once merged to `main`.
+- Automate cross-platform release builds (currently cut by hand — see Bootstrap Distribution above).
 - In-tool config-schema-version warning (bash version had this; not yet ported — see [CHANGELOG.md](CHANGELOG.md)).
 - Async/prefetched `apt-get update` once the CLI orchestrates multiple resources concurrently.
 - Periodic adversarial re-review of each module's tool choice against current ecosystem state (see the module-author skill).

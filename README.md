@@ -5,11 +5,8 @@
 Transform your macOS or Linux machine into a productivity powerhouse with a single command. devboost installs and configures the best-in-class tools for modern development, all while preserving your existing customizations.
 
 ```bash
-git clone https://github.com/rolfsormo/devboost.git && cd devboost
-go build -o devboost ./cmd/devboost && ./devboost apply
+curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/install.sh | sh -s -- apply
 ```
-
-> No release on `main` yet, so build from source for now (requires Go — see [Building from Source](#building-from-source)). A [v2.0.0 pre-release](https://github.com/rolfsormo/devboost/releases/tag/v2.0.0) with real prebuilt binaries already exists and the `curl | sh` flow has been verified working end to end against it — see [Quick Start](#-quick-start). It becomes the default, permanent one-liner once this merges to `main`.
 
 > **✨ What you get:** A beautiful shell (zsh + starship), smart navigation (zoxide, fzf), powerful search (ripgrep, fd), modern replacements (bat, eza, dust, duf, procs), seamless toolchain management (mise), and a fully configured tmux setup — all in under 5 minutes.
 
@@ -30,11 +27,32 @@ Setting up a development environment is tedious. You spend hours installing tool
 
 ## 🚀 Quick Start
 
-### Building from Source (Recommended until this merges to `main`)
+### Install & Run (Recommended)
 
-`main` doesn't have `install.sh` yet — this branch (`v2-go-engine`) is
-still an open PR (see [ARCHITECTURE.md](ARCHITECTURE.md)). Build from
-source, which just needs Go installed:
+```bash
+# Download and run in one command
+curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/install.sh | sh -s -- apply
+```
+
+**That's it!** Your development environment is being set up. Grab a coffee ☕ — this takes a few minutes.
+
+`install.sh` is a small, pure-POSIX-shell bootstrap dispatcher (the same
+pattern rustup uses): it detects your OS/architecture, downloads the
+matching prebuilt `devboost` binary from the
+[latest release](https://github.com/rolfsormo/devboost/releases/latest),
+and execs it with whatever arguments you passed. No application logic
+lives in the shell script itself, which is what makes it small enough to
+actually read before running.
+
+### Alternative: Review First (More Secure)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/install.sh -o /tmp/install.sh
+less /tmp/install.sh          # review it — it's short
+sh /tmp/install.sh apply
+```
+
+### Building from Source
 
 ```bash
 git clone https://github.com/rolfsormo/devboost.git
@@ -43,39 +61,8 @@ go build -o devboost ./cmd/devboost
 ./devboost apply
 ```
 
-**That's it!** Your development environment is being set up. Grab a coffee ☕ — this takes a few minutes.
-
 Copy the resulting `devboost` binary to somewhere on your `PATH` (e.g.
 `~/bin/devboost`) to run it from anywhere afterward.
-
-### Install & Run via curl (the flow once this merges to `main`)
-
-Once merged, this becomes the recommended install path — a small,
-pure-POSIX-shell bootstrap dispatcher (`install.sh`, the same pattern
-rustup uses) that detects your OS/architecture, downloads the matching
-prebuilt `devboost` binary, and execs it with whatever arguments you
-passed. No application logic lives in the shell script itself, which is
-what makes it small enough to actually read before running:
-
-```bash
-# Download and run in one command
-curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/install.sh | sh -s -- apply
-```
-
-Or review first before piping to a shell:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/install.sh -o /tmp/install.sh
-less /tmp/install.sh          # review it — it's short
-sh /tmp/install.sh apply
-```
-
-This exact flow (`install.sh` fetching a real prebuilt binary and
-running it) has already been verified end to end against the
-[v2.0.0 pre-release](https://github.com/rolfsormo/devboost/releases/tag/v2.0.0) —
-`plan`/`apply`/`--version` all confirmed working against the real
-downloaded binary. The command above will work as shown once `main`
-has `install.sh` and the release is promoted out of pre-release status.
 
 ---
 
@@ -318,18 +305,17 @@ including an end-to-end test that builds the real binary and runs
 
 ## 📋 Requirements
 
-To build from source (currently the only way to install — see [Quick Start](#-quick-start)):
-- git
-- Go (see `go.mod` for the minimum version)
-
-To run the built binary:
+To install via `install.sh` (recommended):
+- curl or wget (to fetch the prebuilt binary)
 - git (devboost itself shells out to it for clones/config)
 - sudo (for package installation on Linux)
 
-Once a release exists, the `install.sh` path additionally needs curl or
-wget to fetch the prebuilt binary — no Go toolchain required at that
-point. No bash version requirement, no YAML-parser dependency — devboost
-is a single self-contained binary with Go's YAML support built in.
+To build from source instead:
+- git
+- Go (see `go.mod` for the minimum version)
+
+No bash version requirement, no YAML-parser dependency — devboost is a
+single self-contained binary with Go's YAML support built in.
 
 ### Supported Operating Systems
 
@@ -416,6 +402,5 @@ aren't implemented yet — see the changelog manually for now.)
 **Ready to boost your development environment?** 🚀
 
 ```bash
-git clone https://github.com/rolfsormo/devboost.git && cd devboost
-go build -o devboost ./cmd/devboost && ./devboost apply
+curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/install.sh | sh -s -- apply
 ```
