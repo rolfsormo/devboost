@@ -70,40 +70,92 @@ func ComputeDiff(resources []Resource) ([]PendingOp, error) {
 	return ops, nil
 }
 
+// ExecutionResult is what DiffAndExecute returns: every resource's fate,
+// not just "it worked" or a single top-level error. A resource that
+// fails does not stop unrelated resources from converging — only
+// resources that transitively DependsOn a failed one are skipped, since
+// running them would mean diffing/executing against state the failed
+// resource never actually reached.
+type ExecutionResult struct {
+	Applied []PendingOp       // executed successfully
+	Failed  map[string]error  // resource ID -> the error its Execute returned
+	Skipped map[string]string // resource ID -> ID of the failed resource it transitively depends on
+}
+
 // DiffAndExecute walks resources in topological order, diffing and (if
 // there's a pending change) immediately executing each one before moving
 // on — so a later resource's diff always sees the real effect of an
 // earlier resource it depends on, not a stale pre-execution view. before
 // is called on each PendingOp right before it's executed, letting the
-// caller report progress; pass nil to skip reporting. Returns every
-// PendingOp that was executed.
-func DiffAndExecute(resources []Resource, before func(PendingOp)) ([]PendingOp, error) {
+// caller report progress; pass nil to skip reporting.
+//
+// A resource whose Execute fails does not abort the whole run: it's
+// recorded in Failed, everything transitively depending on it (via
+// DependsOn) is recorded in Skipped without being diffed or executed,
+// and every resource NOT in that failure's dependency chain still runs
+// normally. This matters in practice — e.g. one package genuinely
+// unavailable on a given Linux distro's repos shouldn't prevent zsh
+// config, git config, and every other independent resource from
+// converging (found via a real Ubuntu container test where multiple
+// packages weren't in the default apt repos at all).
+//
+// The returned error is reserved for conditions that make the whole run
+// meaningless to continue — a dependency cycle, an unknown dependency,
+// or a resource whose Diff itself errors (as opposed to Execute failing,
+// which is a normal, expected, per-resource outcome recorded in Failed).
+func DiffAndExecute(resources []Resource, before func(PendingOp)) (ExecutionResult, error) {
 	ordered, err := topoSort(resources)
 	if err != nil {
-		return nil, err
+		return ExecutionResult{}, err
 	}
-	var ops []PendingOp
+
+	result := ExecutionResult{Failed: map[string]error{}, Skipped: map[string]string{}}
+	// failedAncestor[id] = the ID of the failed (or itself-skipped)
+	// resource that id transitively depends on, if any.
+	failedAncestor := map[string]string{}
+
 	for _, r := range ordered {
+		if blocker, blocked := dependsOnFailure(r, failedAncestor); blocked {
+			result.Skipped[r.ID] = blocker
+			failedAncestor[r.ID] = blocker
+			continue
+		}
+
 		op, err := r.Kind.Diff()
 		if err != nil {
-			return nil, fmt.Errorf("resource %s: %w", r.ID, err)
+			return ExecutionResult{}, fmt.Errorf("resource %s: %w", r.ID, err)
 		}
 		if op == nil {
 			continue
 		}
 		op.ResourceID = r.ID
 		if op.Execute == nil {
-			return nil, fmt.Errorf("resource %s: pending op has no Execute", r.ID)
+			return ExecutionResult{}, fmt.Errorf("resource %s: pending op has no Execute", r.ID)
 		}
 		if before != nil {
 			before(*op)
 		}
 		if err := op.Execute(); err != nil {
-			return nil, fmt.Errorf("resource %s: %w", r.ID, err)
+			result.Failed[r.ID] = err
+			failedAncestor[r.ID] = r.ID
+			continue
 		}
-		ops = append(ops, *op)
+		result.Applied = append(result.Applied, *op)
 	}
-	return ops, nil
+	return result, nil
+}
+
+// dependsOnFailure reports whether r transitively DependsOn a resource
+// that already failed or was itself skipped, and if so, the ID of that
+// originating failure (so every downstream resource in the chain reports
+// the same root cause, not just its immediate parent).
+func dependsOnFailure(r Resource, failedAncestor map[string]string) (blocker string, blocked bool) {
+	for _, dep := range r.DependsOn {
+		if origin, ok := failedAncestor[dep]; ok {
+			return origin, true
+		}
+	}
+	return "", false
 }
 
 // topoSort orders resources so that every resource comes after everything

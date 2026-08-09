@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -10,6 +11,7 @@ type fakeKind struct {
 	desc    string
 	ran     *[]string
 	id      string
+	failErr error // if set, Execute returns this instead of succeeding
 }
 
 func (f fakeKind) Diff() (*PendingOp, error) {
@@ -18,9 +20,13 @@ func (f fakeKind) Diff() (*PendingOp, error) {
 	}
 	ran := f.ran
 	id := f.id
+	failErr := f.failErr
 	return &PendingOp{
 		Description: f.desc,
 		Execute: func() error {
+			if failErr != nil {
+				return failErr
+			}
 			*ran = append(*ran, id)
 			return nil
 		},
@@ -107,12 +113,96 @@ func TestDiffAndExecuteSeesDependencyEffects(t *testing.T) {
 		},
 	}
 
-	_, err := DiffAndExecute([]Resource{b, a}, nil)
+	result, err := DiffAndExecute([]Resource{b, a}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(ran) != 1 || ran[0] != "a" {
 		t.Fatalf("expected a to have executed, ran = %v", ran)
+	}
+	if len(result.Failed) != 0 || len(result.Skipped) != 0 {
+		t.Fatalf("expected no failures/skips, got %+v", result)
+	}
+}
+
+// TestDiffAndExecuteContinuesPastUnrelatedFailure is the regression test
+// for the real bug this behavior fixes: found via a live Ubuntu
+// container run where several packages weren't in the default apt
+// repos, aborting a resource's Execute previously stopped EVERY other
+// resource from converging, even ones with no relationship to the
+// failure. A failed resource must not block independent resources.
+func TestDiffAndExecuteContinuesPastUnrelatedFailure(t *testing.T) {
+	var ran []string
+	failing := Resource{
+		ID:   "failing",
+		Kind: fakeKind{pending: true, desc: "fails", ran: &ran, id: "failing", failErr: errors.New("boom")},
+	}
+	independent := Resource{
+		ID:   "independent",
+		Kind: fakeKind{pending: true, desc: "converge independent", ran: &ran, id: "independent"},
+	}
+
+	result, err := DiffAndExecute([]Resource{failing, independent}, nil)
+	if err != nil {
+		t.Fatalf("unexpected top-level error (failures should be reported in the result, not returned): %v", err)
+	}
+	if len(ran) != 1 || ran[0] != "independent" {
+		t.Fatalf("expected the independent resource to still execute, ran = %v", ran)
+	}
+	if len(result.Applied) != 1 || result.Applied[0].ResourceID != "independent" {
+		t.Fatalf("expected independent in Applied, got %+v", result.Applied)
+	}
+	if _, ok := result.Failed["failing"]; !ok {
+		t.Fatalf("expected failing to be recorded in Failed, got %+v", result.Failed)
+	}
+	if len(result.Skipped) != 0 {
+		t.Fatalf("expected no skips (nothing depends on the failure), got %+v", result.Skipped)
+	}
+}
+
+// TestDiffAndExecuteSkipsTransitiveDependents verifies that a resource
+// depending (even transitively) on a failed one is skipped rather than
+// diffed/executed against state the failed resource never reached —
+// while a sibling with no such dependency still converges normally.
+func TestDiffAndExecuteSkipsTransitiveDependents(t *testing.T) {
+	var ran []string
+	base := Resource{
+		ID:   "base",
+		Kind: fakeKind{pending: true, desc: "fails", ran: &ran, id: "base", failErr: errors.New("boom")},
+	}
+	directDependent := Resource{
+		ID:        "direct",
+		DependsOn: []string{"base"},
+		Kind:      fakeKind{pending: true, desc: "direct", ran: &ran, id: "direct"},
+	}
+	transitiveDependent := Resource{
+		ID:        "transitive",
+		DependsOn: []string{"direct"},
+		Kind:      fakeKind{pending: true, desc: "transitive", ran: &ran, id: "transitive"},
+	}
+	unrelated := Resource{
+		ID:   "unrelated",
+		Kind: fakeKind{pending: true, desc: "unrelated", ran: &ran, id: "unrelated"},
+	}
+
+	result, err := DiffAndExecute([]Resource{base, directDependent, transitiveDependent, unrelated}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(ran) != 1 || ran[0] != "unrelated" {
+		t.Fatalf("expected only unrelated to execute, ran = %v", ran)
+	}
+	if _, ok := result.Failed["base"]; !ok {
+		t.Fatalf("expected base to be recorded as failed, got %+v", result.Failed)
+	}
+	if blocker, ok := result.Skipped["direct"]; !ok || blocker != "base" {
+		t.Fatalf("expected direct skipped due to base, got %+v", result.Skipped)
+	}
+	if blocker, ok := result.Skipped["transitive"]; !ok || blocker != "base" {
+		t.Fatalf("expected transitive skipped due to base (root cause, not just its immediate parent), got %+v", result.Skipped)
+	}
+	if len(result.Applied) != 1 || result.Applied[0].ResourceID != "unrelated" {
+		t.Fatalf("expected only unrelated in Applied, got %+v", result.Applied)
 	}
 }
 
