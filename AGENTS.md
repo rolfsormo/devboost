@@ -271,7 +271,7 @@ go test ./...          # full, including the slow end-to-end test — required b
 - **OS detection**: `kinds.DetectOS()` returns a typed `kinds.OS` (`OSDarwin`, `OSLinuxUbuntu`, `OSLinuxFedora`, `OSLinuxArch`, `OSOther`)
 - **Package managers**: `kinds.Package` abstracts brew/apt/dnf/pacman — add new package-name mappings there, not in individual modules
 - **Path differences**: handle macOS (`/opt/homebrew`) vs Linux paths explicitly where it matters (e.g. tmux integration docs)
-- **Test on both**: when possible, test on macOS and Linux — CI (`.github/workflows/test.yml`) runs both
+- **Test on both**: when possible, test on macOS and Linux locally before pushing — no GitHub Actions CI runs automatically (deliberate: local development cost is effectively free, GitHub Actions spend is not, so it stays opt-in rather than running on every push)
 
 ### 10. Performance Guidelines
 
