@@ -17,7 +17,7 @@ curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/install.sh 
 Setting up a development environment is tedious. You spend hours installing tools, configuring shells, tweaking prompts, and setting up aliases. devboost does all of this **automatically** with **sensible defaults** that work out of the box.
 
 **Key principles:**
-- ✅ **Non-destructive**: Your existing customizations are never deleted or clobbered — devboost only ever edits clearly-marked managed regions (an include line in `.zshrc`, a marker block in `.tmux.conf`) and backs up before touching anything, so it's always reversible
+- ✅ **Reversible**: Edits are confined to clearly-marked managed regions (an include line in `.zshrc`, a marker block in `.tmux.conf`), everything is backed up first, and nothing of yours is ever deleted
 - ✅ **Idempotent**: Safe to run multiple times — only applies what's needed
 - ✅ **Opinionated**: Curated selection of best-in-class tools
 - ✅ **Zero prompts**: Everything works automatically with smart defaults
@@ -262,13 +262,12 @@ See [`.devboost.yaml.example`](.devboost.yaml.example) for all available options
 
 ## 🛡️ Safety & Philosophy
 
-devboost **does** edit some of your existing files — an include line gets
-added to `.zshrc`, a marker block goes into `.tmux.conf`, and redundant
-legacy-tool lines get commented out in place. What it won't do is
-destroy anything:
+Setup touches a few existing files — an include line in `.zshrc`, a
+marker block in `.tmux.conf`, redundant legacy-tool lines commented out
+in place — but always this way:
 
 - ✅ **Backed up first** — first-touch backups in `~/.devboost/backups/` before any existing file is touched
-- ✅ **Edits confined to managed regions** — your own `.zshrc`/`.tmux.conf` content outside the include line/marker block is left alone; nothing is deleted, only commented out with a `# devboost:disabled:...` marker you can review or restore by hand
+- ✅ **Edits confined to managed regions** — everything outside the include line/marker block is left alone; lines are never deleted, only commented out with a `# devboost:disabled:...` marker that can be reviewed or restored by hand
 - ✅ **Idempotent** — safe to run multiple times
 - ✅ **Preview mode** — use `plan` to see what would change
 - ✅ **Easy removal** — `uninstall` removes all managed files and blocks
