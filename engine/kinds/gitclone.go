@@ -30,7 +30,18 @@ func (g GitClone) Diff() (*engine.PendingOp, error) {
 			if err := os.MkdirAll(filepath.Dir(g.Dest), 0o755); err != nil {
 				return err
 			}
-			cmd := exec.Command("git", "clone", "--depth", "1", g.URL, g.Dest)
+			// -c credential.helper= (empty value) disables credential
+			// helpers for this invocation only, overriding any helper
+			// configured system-wide (e.g. macOS's credential.helper =
+			// osxkeychain in /opt/homebrew/etc/gitconfig). Without this,
+			// a successful anonymous HTTPS clone still triggers
+			// `git-credential-osxkeychain store` afterwards, which blocks
+			// on a Keychain GUI prompt that never comes in a headless
+			// apply run — confirmed by direct process-tree inspection of
+			// a real hung `devboost apply`. devboost only ever clones
+			// public repos anonymously, so there is never a credential to
+			// store.
+			cmd := exec.Command("git", "-c", "credential.helper=", "clone", "--depth", "1", g.URL, g.Dest)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			return cmd.Run()

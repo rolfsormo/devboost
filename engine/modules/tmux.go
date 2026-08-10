@@ -2,6 +2,7 @@ package modules
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 
 	"github.com/rolfsormo/devboost/config"
@@ -65,8 +66,28 @@ func init() {
 		Satisfied: func(any) (bool, error) { return false, nil },
 		Converge: func(params any) error {
 			tpmPath := params.(string)
-			_ = exec.Command(tpmPath + "/bindings/install_plugins").Run()
-			_ = exec.Command(tpmPath+"/bindings/update_plugins", "all").Run()
+			// TPM's own scripts shell out to `git clone` internally for
+			// each plugin. Without disabling credential helpers, a
+			// successful anonymous HTTPS clone still triggers
+			// `git-credential-osxkeychain store` afterwards, which blocks
+			// on a Keychain GUI prompt that never comes in a headless
+			// apply run — confirmed by direct process-tree inspection of
+			// a real hung `devboost apply` stuck inside TPM's
+			// install_plugins.sh. GIT_CONFIG_COUNT/KEY/VALUE is git's
+			// documented way to inject config into a subprocess we don't
+			// control the invocation of, equivalent to `git -c
+			// credential.helper=` but via environment instead of args.
+			noCredHelperEnv := append(os.Environ(),
+				"GIT_CONFIG_COUNT=1",
+				"GIT_CONFIG_KEY_0=credential.helper",
+				"GIT_CONFIG_VALUE_0=",
+			)
+			install := exec.Command(tpmPath + "/bindings/install_plugins")
+			install.Env = noCredHelperEnv
+			_ = install.Run()
+			update := exec.Command(tpmPath+"/bindings/update_plugins", "all")
+			update.Env = noCredHelperEnv
+			_ = update.Run()
 			return nil
 		},
 	})
