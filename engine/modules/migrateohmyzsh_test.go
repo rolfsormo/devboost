@@ -5,41 +5,64 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/rolfsormo/devboost/engine"
+	"github.com/rolfsormo/devboost/engine/kinds"
 )
 
-func TestMigrateFromOhMyZshNoYesRefuses(t *testing.T) {
+func omzResource(t *testing.T) engine.Resource {
+	t.Helper()
+	cfg := loadFixtureConfig(t, "")
+	got := OhMyZshMigration(cfg)
+	if len(got) != 1 {
+		t.Fatalf("expected exactly one resource, got %d", len(got))
+	}
+	return got[0]
+}
+
+func TestOhMyZshMigrationDisabledByOptimizeEnable(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	if err := os.MkdirAll(filepath.Join(home, ".oh-my-zsh"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-
-	err := MigrateFromOhMyZsh(false, false)
-	if err == nil {
-		t.Fatal("expected an error without --yes")
-	}
-	if !strings.Contains(err.Error(), "--yes") {
-		t.Fatalf("expected the error to mention --yes, got: %v", err)
-	}
-	if _, statErr := os.Stat(filepath.Join(home, ".oh-my-zsh")); statErr != nil {
-		t.Fatal("expected ~/.oh-my-zsh left untouched without --yes")
+	cfg := loadFixtureConfig(t, "optimize:\n  enable: false\n")
+	if got := OhMyZshMigration(cfg); len(got) != 0 {
+		t.Fatalf("expected no resources when optimize disabled, got %v", got)
 	}
 }
 
-func TestMigrateFromOhMyZshNothingToDo(t *testing.T) {
+func TestOhMyZshMigrationSatisfiedWhenAbsent(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	// No ~/.oh-my-zsh and no backup present at all.
-	err := MigrateFromOhMyZsh(false, true)
-	if err == nil {
-		t.Fatal("expected an error when there's nothing to recover")
+	// No ~/.oh-my-zsh at all.
+	r := omzResource(t)
+	op, err := r.Kind.Diff()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.Contains(err.Error(), "nothing to recover") {
-		t.Fatalf("expected a 'nothing to recover' error, got: %v", err)
+	if op != nil {
+		t.Fatalf("expected no pending op when ~/.oh-my-zsh is absent, got %+v", op)
 	}
 }
 
-func TestMigrateFromOhMyZshFullFlowWithPreInstallBase(t *testing.T) {
+func TestOhMyZshMigrationPendingWhenPresent(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := os.MkdirAll(filepath.Join(home, ".oh-my-zsh"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	r := omzResource(t)
+	op, err := r.Kind.Diff()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if op == nil {
+		t.Fatal("expected a pending op when ~/.oh-my-zsh is present")
+	}
+}
+
+func TestOhMyZshMigrationConvergesAutomatically(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	if err := os.MkdirAll(filepath.Join(home, ".oh-my-zsh"), 0o755); err != nil {
@@ -59,15 +82,20 @@ func TestMigrateFromOhMyZshFullFlowWithPreInstallBase(t *testing.T) {
 			"alias gs=\"git status\"\n"+
 			"export MY_CUSTOM_VAR=\"hello\"\n")
 
-	if err := MigrateFromOhMyZsh(false, true); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	r := omzResource(t)
+	op, err := r.Kind.Diff()
+	if err != nil || op == nil {
+		t.Fatalf("op=%+v err=%v", op, err)
+	}
+	// No confirmation gate, no --yes: Execute converges directly, same
+	// as any other resource's Diff/Execute — this is the core behavior
+	// change from the old migrate-from-oh-my-zsh --yes-gated subcommand.
+	if err := op.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
 	}
 
 	if _, err := os.Stat(filepath.Join(home, ".oh-my-zsh")); !os.IsNotExist(err) {
 		t.Fatal("expected ~/.oh-my-zsh removed from its original location")
-	}
-	if _, err := os.Stat(filepath.Join(home, ".zshrc.pre-oh-my-zsh")); !os.IsNotExist(err) {
-		t.Fatal("expected .zshrc.pre-oh-my-zsh consumed")
 	}
 
 	data, err := os.ReadFile(filepath.Join(home, ".zshrc"))
@@ -75,7 +103,6 @@ func TestMigrateFromOhMyZshFullFlowWithPreInstallBase(t *testing.T) {
 		t.Fatal(err)
 	}
 	result := string(data)
-
 	for _, want := range []string{
 		`alias ll="ls -la"`,
 		`export MY_CUSTOM_VAR="hello"`,
@@ -90,40 +117,18 @@ func TestMigrateFromOhMyZshFullFlowWithPreInstallBase(t *testing.T) {
 			t.Fatalf("expected oh-my-zsh template line %q stripped, got %q", unwanted, result)
 		}
 	}
-}
 
-func TestMigrateFromOhMyZshNoBaseRecoversFromBackupDirectly(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	if err := os.MkdirAll(filepath.Join(home, ".oh-my-zsh"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	writeFile(t, filepath.Join(home, ".zshrc"),
-		"export ZSH=\"$HOME/.oh-my-zsh\"\n"+
-			"ZSH_THEME=\"agnoster\"\n"+
-			"plugins=(git)\n"+
-			"source $ZSH/oh-my-zsh.sh\n\n"+
-			"export EDITOR=\"nvim\"\n"+
-			"alias gs=\"git status\"\n")
-
-	if err := MigrateFromOhMyZsh(false, true); err != nil {
+	// And now Satisfied should report true — no more pending op.
+	op2, err := r.Kind.Diff()
+	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
-	data, err := os.ReadFile(filepath.Join(home, ".zshrc"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	result := string(data)
-	if !strings.Contains(result, `export EDITOR="nvim"`) {
-		t.Fatalf("expected customizations recovered, got %q", result)
-	}
-	if strings.Contains(result, "ZSH_THEME") {
-		t.Fatalf("expected oh-my-zsh boilerplate stripped, got %q", result)
+	if op2 != nil {
+		t.Fatalf("expected no pending op after convergence, got %+v", op2)
 	}
 }
 
-func TestMigrateFromOhMyZshNothingBeyondTemplate(t *testing.T) {
+func TestOhMyZshMigrationNothingBeyondTemplate(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	if err := os.MkdirAll(filepath.Join(home, ".oh-my-zsh"), 0o755); err != nil {
@@ -137,8 +142,13 @@ func TestMigrateFromOhMyZshNothingBeyondTemplate(t *testing.T) {
 			"plugins=(git)\n"+
 			"source $ZSH/oh-my-zsh.sh\n")
 
-	if err := MigrateFromOhMyZsh(false, true); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	r := omzResource(t)
+	op, err := r.Kind.Diff()
+	if err != nil || op == nil {
+		t.Fatalf("op=%+v err=%v", op, err)
+	}
+	if err := op.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
 	}
 
 	data, err := os.ReadFile(filepath.Join(home, ".zshrc"))
@@ -151,34 +161,165 @@ func TestMigrateFromOhMyZshNothingBeyondTemplate(t *testing.T) {
 	}
 }
 
-func TestMigrateFromOhMyZshDryRunMakesNoChanges(t *testing.T) {
+func TestOhMyZshMigrationUndoRestoresArchiveAndZshrc(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	if err := os.MkdirAll(filepath.Join(home, ".oh-my-zsh"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(home, ".zshrc.pre-oh-my-zsh"), `export PATH="$HOME/bin:$PATH"`+"\n")
-	before := `export PATH="$HOME/bin:$PATH"` + "\n" +
+	writeFile(t, filepath.Join(home, ".oh-my-zsh", "oh-my-zsh.sh"), "# marker file\n")
+	writeFile(t, filepath.Join(home, ".zshrc.pre-oh-my-zsh"),
+		"export PATH=\"$HOME/bin:$PATH\"\nalias ll=\"ls -la\"\n")
+	originalZshrc := "export PATH=\"$HOME/bin:$PATH\"\n" +
+		"alias ll=\"ls -la\"\n\n" +
 		"export ZSH=\"$HOME/.oh-my-zsh\"\n" +
-		"source $ZSH/oh-my-zsh.sh\n" +
-		`export MY_VAR="test"` + "\n"
-	writeFile(t, filepath.Join(home, ".zshrc"), before)
+		"ZSH_THEME=\"agnoster\"\n" +
+		"plugins=(git)\n" +
+		"source $ZSH/oh-my-zsh.sh\n\n" +
+		"export MY_CUSTOM_VAR=\"hello\"\n"
+	writeFile(t, filepath.Join(home, ".zshrc"), originalZshrc)
 
-	if err := MigrateFromOhMyZsh(true, false); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	r := omzResource(t)
+	op, err := r.Kind.Diff()
+	if err != nil || op == nil {
+		t.Fatalf("setup: op=%+v err=%v", op, err)
+	}
+	if err := op.Execute(); err != nil {
+		t.Fatalf("setup execute: %v", err)
 	}
 
-	after, err := os.ReadFile(filepath.Join(home, ".zshrc"))
+	undoer, ok := r.Kind.(engine.Undoer)
+	if !ok {
+		t.Fatal("expected omz_migration's Kind to implement engine.Undoer")
+	}
+	undoOp, err := undoer.Undo()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if undoOp == nil {
+		t.Fatal("expected a pending undo op after a real migration")
+	}
+	if err := undoOp.Execute(); err != nil {
+		t.Fatalf("undo execute: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(home, ".oh-my-zsh", "oh-my-zsh.sh")); err != nil {
+		t.Fatalf("expected ~/.oh-my-zsh restored with its contents intact: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(home, ".zshrc"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(after) != before {
-		t.Fatalf("expected .zshrc untouched by dry-run, got %q", after)
+	// Undo restores .zshrc from the backup taken right before the
+	// recovered-additions rewrite — i.e. the post-uninstallOhMyZsh,
+	// pre-append state, which is .zshrc.pre-oh-my-zsh's content (since
+	// that's what uninstallOhMyZsh restores into .zshrc before the
+	// recovery rewrite runs).
+	if !strings.Contains(string(data), `alias ll="ls -la"`) {
+		t.Fatalf("expected restored .zshrc to contain pre-oh-my-zsh content, got %q", data)
 	}
-	if _, err := os.Stat(filepath.Join(home, ".oh-my-zsh")); err != nil {
-		t.Fatal("expected ~/.oh-my-zsh untouched by dry-run")
+}
+
+// TestOhMyZshMigrationUndoIsNotRepeatable is a regression test for the
+// backup-renaming fix: a second `devboost undo` after the archived
+// ~/.oh-my-zsh and .zshrc backup have already been consumed must report
+// nothing pending, not re-restore (or error trying to restore) the same
+// already-moved material. The archived directory renaming itself is a
+// no-op the second time around (os.Rename already moved it out of the
+// backup root entirely), but the .zshrc backup must be explicitly
+// marked reverted, or findLatestZshrcBackup would keep finding and
+// re-restoring the same snapshot on every subsequent undo.
+func TestOhMyZshMigrationUndoIsNotRepeatable(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := os.MkdirAll(filepath.Join(home, ".oh-my-zsh"), 0o755); err != nil {
+		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(home, ".zshrc.pre-oh-my-zsh")); err != nil {
-		t.Fatal("expected .zshrc.pre-oh-my-zsh untouched by dry-run")
+	writeFile(t, filepath.Join(home, ".oh-my-zsh", "oh-my-zsh.sh"), "# marker file\n")
+	writeFile(t, filepath.Join(home, ".zshrc.pre-oh-my-zsh"),
+		"export PATH=\"$HOME/bin:$PATH\"\nalias ll=\"ls -la\"\n")
+	writeFile(t, filepath.Join(home, ".zshrc"),
+		"export PATH=\"$HOME/bin:$PATH\"\n"+
+			"alias ll=\"ls -la\"\n\n"+
+			"export ZSH=\"$HOME/.oh-my-zsh\"\n"+
+			"source $ZSH/oh-my-zsh.sh\n\n"+
+			"export MY_CUSTOM_VAR=\"hello\"\n")
+
+	r := omzResource(t)
+	op, err := r.Kind.Diff()
+	if err != nil || op == nil {
+		t.Fatalf("setup: op=%+v err=%v", op, err)
+	}
+	if err := op.Execute(); err != nil {
+		t.Fatalf("setup execute: %v", err)
+	}
+
+	undoer := r.Kind.(engine.Undoer)
+	firstUndo, err := undoer.Undo()
+	if err != nil || firstUndo == nil {
+		t.Fatalf("first undo: op=%+v err=%v", firstUndo, err)
+	}
+	if err := firstUndo.Execute(); err != nil {
+		t.Fatalf("first undo execute: %v", err)
+	}
+
+	secondUndo, err := undoer.Undo()
+	if err != nil {
+		t.Fatalf("unexpected error on second undo: %v", err)
+	}
+	if secondUndo != nil {
+		t.Fatalf("expected no pending op on a second undo, got %+v", secondUndo)
+	}
+
+	// The consumed .zshrc backup should still exist on disk, just
+	// renamed — never deleted, same as every other backup in this
+	// codebase.
+	backupRoot := filepath.Join(home, ".devboost", "backups")
+	entries, err := os.ReadDir(backupRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundReverted := false
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), revertedSuffix) {
+			foundReverted = true
+		}
+	}
+	if !foundReverted {
+		t.Fatalf("expected a %s-suffixed backup directory to remain on disk, got entries: %v", revertedSuffix, entries)
+	}
+}
+
+func TestOhMyZshMigrationUndoNilWhenNeverConverged(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	r := omzResource(t)
+	undoer, ok := r.Kind.(engine.Undoer)
+	if !ok {
+		t.Fatal("expected omz_migration's Kind to implement engine.Undoer")
+	}
+	op, err := undoer.Undo()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if op != nil {
+		t.Fatalf("expected no pending undo op when nothing was ever migrated, got %+v", op)
+	}
+}
+
+func TestOhMyZshMigrationRegisteredCommand(t *testing.T) {
+	// Sanity check that the CommandGuarded ID used by OhMyZshMigration
+	// is actually registered — an unregistered ID fails loudly per
+	// kinds.CommandGuarded's contract, so this would fail Diff() if the
+	// init() registration and the ID string in OhMyZshMigration ever
+	// drifted apart.
+	c := kinds.CommandGuarded{ID: "omz_migration_converged", Wants: "x"}
+	home := t.TempDir()
+	os_ := os.Getenv("HOME")
+	defer os.Setenv("HOME", os_)
+	os.Setenv("HOME", home)
+	if _, err := c.Diff(); err != nil {
+		t.Fatalf("expected omz_migration_converged to be registered: %v", err)
 	}
 }

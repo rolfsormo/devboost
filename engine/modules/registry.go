@@ -50,6 +50,7 @@ var All = []Module{
 	{Name: "zinit", Resources: func(cfg *config.Config, os kinds.OS) []engine.Resource { return ZinitZnapDedup(cfg) }},
 	{Name: "asdf", Resources: func(cfg *config.Config, os kinds.OS) []engine.Resource { return AsdfMiseDedup(cfg) }},
 	{Name: "nvm", Resources: func(cfg *config.Config, os kinds.OS) []engine.Resource { return NvmMiseDedup(cfg) }},
+	{Name: "omz_migration", Resources: func(cfg *config.Config, os kinds.OS) []engine.Resource { return OhMyZshMigration(cfg) }},
 }
 
 // AllResources computes every module's desired-state resources for the
