@@ -27,6 +27,11 @@ We welcome contributions of all kinds:
    # or
    git checkout -b fix/your-bug-fix
    ```
+4. **Build and confirm the baseline works**:
+   ```bash
+   go build ./...
+   go test ./... -short
+   ```
 
 ## Development Workflow
 
@@ -35,51 +40,28 @@ We welcome contributions of all kinds:
 - Follow the coding standards in [AGENTS.md](AGENTS.md)
 - Keep changes focused and atomic
 - Add comments explaining *why*, not *what*
-- Use the `db_*` function naming convention
+- If you're changing which tool a module uses or its defaults, research
+  the choice first and document the rationale in the module's doc comment
+  — see [.agents/skills/devboost-module-author/SKILL.md](.agents/skills/devboost-module-author/SKILL.md)
+  for the process
 
 ### 2. Test Your Changes
 
-**Testing is mandatory** - all contributions must be tested before submission.
+**Testing is mandatory** — all contributions must be tested before submission.
 
 #### Basic Testing Checklist
 
-- [ ] **Build test**: `./build.sh` succeeds
-- [ ] **Syntax check**: `bash -n devboost.sh` passes
-- [ ] **Plan test**: `./devboost.sh plan` shows expected changes
-- [ ] **Idempotency test**: Run `apply` twice - second run should be no-op
-- [ ] **Config test**: Test with minimal config and full config
-- [ ] **Dry-run test**: `./devboost.sh plan` works correctly
+- [ ] **Build**: `go build ./...` succeeds
+- [ ] **Vet**: `go vet ./...` passes
+- [ ] **Unit tests**: `go test ./... -short` passes
+- [ ] **Full tests** (including the slow real end-to-end apply): `go test ./...` passes
+- [ ] **Plan test**: `go run ./cmd/devboost plan` shows expected changes
+- [ ] **Idempotency test**: run `apply` twice — the second run should make no `.zshrc`/config changes
+- [ ] **Config test**: test with a minimal config and a full config (see `.devboost.yaml.example`)
 
-#### Platform Testing
-
-We have automated test scripts for all supported platforms:
-
-**Linux Testing (Docker/Podman):**
-```bash
-# Test on a specific distribution
-./tests/test-linux.sh ubuntu
-./tests/test-linux.sh debian
-./tests/test-linux.sh fedora
-./tests/test-linux.sh arch
-
-# Test on all distributions
-./tests/test-linux.sh all
-```
-
-**Note**: The script automatically uses Docker or Podman (installing Podman if needed). On macOS, Podman is installed via Homebrew. Arch Linux tests are skipped on ARM64 systems.
-
-**macOS Testing (Sandboxed):**
-```bash
-# Run tests in a temporary environment (won't affect your config)
-./tests/test-macos.sh
-```
-
-If you're adding platform-specific code:
-
-- [ ] Run the appropriate test script(s)
-- [ ] Test on macOS (if available) using `./tests/test-macos.sh`
-- [ ] Test on Linux using `./tests/test-linux.sh [distro]`
-- [ ] Document any platform limitations
+If you're adding platform-specific code, note in your PR which platforms
+you were able to test on — `go test ./...` skips the platform-dependent
+end-to-end test on unsupported OSes automatically.
 
 See [tests/README.md](tests/README.md) for detailed testing documentation.
 
@@ -87,11 +69,11 @@ See [tests/README.md](tests/README.md) for detailed testing documentation.
 
 If you're adding a new module:
 
-- [ ] Test `plan` mode shows correct output
-- [ ] Test `apply` mode works correctly
-- [ ] Test idempotency (multiple runs)
-- [ ] Test with module disabled in config
-- [ ] Test error handling (missing dependencies, etc.)
+- [ ] Test that `Foo(cfg)` returns no resources when disabled via config
+- [ ] Test the default resource shape against a default/fixture config
+- [ ] Test idempotency — a resource's `Diff()` should return `nil` once converged
+- [ ] Test any `DependsOn` interactions with other modules that touch the same file
+- [ ] Write the rationale doc comment (see [AGENTS.md](AGENTS.md) and the module-author skill)
 
 ### 3. Update Documentation
 
@@ -99,6 +81,7 @@ If you're adding a new module:
 - [ ] Update `.devboost.yaml.example` if adding config options
 - [ ] Update `CHANGELOG.md` with your changes
 - [ ] Update `AGENTS.md` if changing development guidelines
+- [ ] Update `ARCHITECTURE.md` if changing the engine or module structure
 
 ### 4. Commit Your Changes
 
@@ -115,30 +98,30 @@ Follow the [CBEAMS commit message style](AGENTS.md#4-commit-message-style-cbeams
 **Examples:**
 
 ```
-feat(zsh): add support for custom znap path
+feat(mise): add support for a custom deno version pin
 
-Allow users to configure znap installation path via
-.zsh.znap_path in config file. Defaults to ~/.zsh-snap
-if not specified.
+Allow toolchains.globals.deno to be set to a specific version
+instead of only "lts". Defaults to "lts" if not specified.
 
 Closes #42
 ```
 
 ```
-fix(starship): correct git_status format syntax
+fix(git): correct delta.line-numbers config key
 
-The format string was using invalid variable concatenation.
-Changed to use $all_status only, which is the correct
-starship syntax.
+The key was being read as git.delta.lineNumbers, which never
+matched a real config key — changed to git.delta.line_numbers
+to match the documented example.
 
 Fixes #38
 ```
 
 ```
-test(linux): add Ubuntu 22.04 testing
+test(modules): add cross-module ordering regression test
 
-Verified package installation and module functionality
-on Ubuntu 22.04. All modules working correctly.
+Verified security's managed block correctly depends on zsh's
+File resource having already run, so the file overwrite can't
+silently destroy the block.
 
 Related to #15
 ```
@@ -157,24 +140,28 @@ Then create a Pull Request on GitHub with:
 
 ## Adding a New Module
 
-Adding modules is designed to be super easy! See [AGENTS.md](AGENTS.md#3-module-development) for detailed instructions.
+Adding modules is designed to be easy. See
+[AGENTS.md](AGENTS.md#3-module-development) and
+[ARCHITECTURE.md](ARCHITECTURE.md#adding-a-new-module) for detailed
+instructions.
 
 **Quick checklist:**
 
-1. Create `modules/module_foo.sh`
-2. Implement `db_module_foo_register()`, `plan()`, and `apply()`
-3. Add to `build.sh` (file inclusion + registration)
-4. Add config options to `.devboost.yaml.example`
-5. Test thoroughly
-6. Update documentation
+1. Create `engine/modules/foo.go` with a `Foo(cfg *config.Config) []engine.Resource` function
+2. Research the tool choice and write the rationale as a doc comment (see the module-author skill)
+3. Add `foo_test.go`
+4. Register it in `engine/modules/registry.go`'s `All` slice
+5. Add config keys to `.devboost.yaml.example`
+6. `go build ./... && go test ./...`
+7. Update documentation
 
 ## Code Quality Standards
 
-- **Bash best practices**: See [AGENTS.md](AGENTS.md#2-code-quality-standards-2025)
-- **Error handling**: Always check return codes, provide helpful messages
-- **Performance**: Minimize external calls, cache when appropriate
-- **Readability**: Clear function names, consistent naming, focused functions
-- **Security**: Never execute user input, validate paths, backup before modify
+- **Go idioms**: standard library over reinventing helpers, clear error wrapping (`fmt.Errorf("...: %w", err)`)
+- **Error handling**: always check return values; a `CommandGuarded` with no registered implementation fails loudly, never silently
+- **Readability**: since most of this code is read (and often written) by both humans and coding agents, prioritize clarity over cleverness
+- **Security**: never execute unsanitized user input, validate paths, back up before overwriting a file the user didn't ask devboost to fully own
+- **No corners**: never shell out to bypass writing a real diff — see [ARCHITECTURE.md](ARCHITECTURE.md#resource-kinds-providers)
 
 ## Testing Requirements
 
@@ -182,25 +169,22 @@ Adding modules is designed to be super easy! See [AGENTS.md](AGENTS.md#3-module-
 
 ### Minimum Testing Requirements
 
-1. **Build and syntax**: `./build.sh && bash -n devboost.sh`
-2. **Plan mode**: `./devboost.sh plan` (should not error)
-3. **Apply mode**: `./devboost.sh apply` (should work)
-4. **Idempotency**: Run `apply` twice, second should be no-op
-5. **Platform tests**: Run `./tests/test-macos.sh` (macOS) or `./tests/test-linux.sh [distro]` (Linux)
+1. **Build and vet**: `go build ./... && go vet ./...`
+2. **Unit tests**: `go test ./... -short`
+3. **Full tests**: `go test ./...` (includes a real end-to-end apply against a sandboxed `HOME` — slow, touches real package managers)
+4. **Idempotency**: run `apply` twice against a temp `HOME`, second run should be a no-op
 
 ### Recommended Testing
 
 - Test with different config files
-- Test error conditions (missing dependencies, etc.)
+- Test error conditions (missing dependencies, unregistered `CommandGuarded` IDs, etc.)
 - Test on different operating systems if possible
-- Test edge cases
 
 ### Testing on Different Platforms
 
 We especially welcome contributions that test and fix issues on:
 - Different Linux distributions (Ubuntu, Debian, Fedora, Arch)
 - Different macOS versions
-- Different shell versions
 
 If you test on a platform, please note it in your PR!
 
@@ -210,8 +194,7 @@ When reporting bugs, please include:
 
 1. **Environment**:
    - OS and version
-   - Shell version
-   - devboost version
+   - `devboost --version`
 
 2. **Steps to reproduce**:
    - Exact commands run
@@ -223,7 +206,6 @@ When reporting bugs, please include:
 4. **Actual behavior**:
    - What actually happened
    - Error messages
-   - Logs (with `--verbose` flag)
 
 5. **Additional context**:
    - Any relevant system information
@@ -244,7 +226,7 @@ When requesting features:
 2. Reviewers will check:
    - Code quality and style
    - Test coverage
-   - Documentation updates
+   - Documentation updates (including module rationale, if applicable)
    - Backwards compatibility
 3. Be open to feedback and suggestions
 4. Address review comments promptly
@@ -253,6 +235,7 @@ When requesting features:
 
 - Check [AGENTS.md](AGENTS.md) for development guidelines
 - Check [ARCHITECTURE.md](ARCHITECTURE.md) for design details
+- Check [.agents/skills/devboost-module-author/SKILL.md](.agents/skills/devboost-module-author/SKILL.md) for the module-research-and-documentation process
 - Open an issue for questions or discussions
 - Be respectful and constructive in all interactions
 
@@ -264,4 +247,3 @@ Contributors will be:
 - Appreciated by the community! 🎉
 
 Thank you for contributing to devboost!
-

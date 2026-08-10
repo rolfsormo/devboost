@@ -1,12 +1,13 @@
 # ~/.devboost.yaml
 # Example configuration file for devboost
 # Copy this to ~/.devboost.yaml and customize as needed
+# Every key below has a default — this file is optional, and every
+# key you omit just falls back to what's shown here.
 
 system:
   # auto_install_plugins: true installs TPM plugins immediately via CLI after writing tmux config.
   # Set to false if you prefer to run prefix+I manually inside a tmux session.
   auto_install_plugins: true
-  package_manager: auto          # auto|brew|apt|dnf|pacman
 
 # Editor/terminal integration: configure how your terminal emulator and code editor
 # attach to the named tmux session so windows persist across restarts.
@@ -49,13 +50,9 @@ packages:
     - dust
     - duf
     - procs
-  optional:
-    - btop
-    - httpie
 
 zsh:
   enable: true
-  plugin_manager: znap           # fixed
   znap_git: https://github.com/marlonrichert/zsh-snap.git
   znap_path: ~/.zsh-snap
   include_file: ~/.zshrc.devboost # devboost-managed; sourced from user's ~/.zshrc
@@ -65,14 +62,31 @@ zsh:
       # Filter mode controls how command history is shared between shells
       # Options: global (all shells), host (same machine), session (isolated),
       #          directory (same folder), workspace (same git repo)
-      # Default: directory - context-specific history preferred by developers
-      filter_mode: directory
+      # Default: global for interactive ctrl-r search (matches atuin's own
+      # upstream default). filter_mode_shell_up_key_binding below separately
+      # scopes just the up-arrow key to directory, for quick context-local
+      # recall without restricting ctrl-r search.
+      filter_mode: global
+      filter_mode_shell_up_key_binding: directory
   fzf:
     enable: true
     default_command_files: "fd --type f --hidden --follow --exclude .git"
     default_command_dirs:  "fd --type d --hidden --follow --exclude .git"
   aliases:
     enable: true
+
+# Detects and disables shell tooling that duplicates what devboost already
+# manages when found in your pre-existing ~/.zshrc/~/.zprofile (a leftover
+# zinit setup duplicating znap's plugins, asdf alongside mise, nvm
+# alongside mise, or oh-my-zsh itself alongside znap/starship). Redundant
+# lines are commented out (never deleted); oh-my-zsh is migrated away from
+# with your post-install customizations recovered into .zshrc. Run
+# `devboost undo` to reverse any of this, or `devboost clean` to
+# permanently remove the disabled lines instead.
+optimize:
+  enable: true
+  zshrc: ~/.zshrc
+  zprofile: ~/.zprofile
 
 prompt:
   enable_starship: true
@@ -83,11 +97,10 @@ tmux:
   tpm_path: ~/.tmux/plugins/tpm
   conf_file: ~/.tmux.conf
   plugins:
-    - tmux-plugins/tpm
-    - tmux-plugins/tmux-resurrect
-    - tmux-plugins/tmux-continuum
-    - tmux-plugins/tmux-yank
-    - tmux-plugins/tmux-logging
+    logging:
+      # tmux-logging has noticeably lower adoption than the other bundled
+      # plugins (resurrect/continuum/yank) — opt-in rather than default-on.
+      enable: false
   settings:
     base_index: 1
     pane_base_index: 1
@@ -107,11 +120,17 @@ toolchains:
     rust: "stable"
     deno: "lts"
 
+# direnv is installed by default for plain per-directory env vars
+# (arbitrary export lines in a project's .envrc). Toolchain activation is
+# handled globally by `mise activate zsh` instead (see toolchains above) —
+# mise's own docs describe this split as the current supported way to run
+# both tools together, not a workaround. direnv.content is empty by
+# default (nothing for devboost to manage); set it if you want devboost
+# to own a specific ~/.direnvrc.
 direnv:
   enable: true
   rc_path: ~/.direnvrc
-  content: |
-    use_mise() { eval "$(mise activate direnv)"; }
+  content: ""
 
 git:
   delta:
@@ -128,4 +147,3 @@ security:
   # and toolchains. The doctor command warns when toolchains are set to 'latest' or when
   # the Homebrew index is stale. Nothing auto-updates — you stay in control.
   enable: true
-
