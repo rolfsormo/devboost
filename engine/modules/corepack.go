@@ -27,21 +27,45 @@ func init() {
 			return false, nil
 		},
 		Converge: func(any) error {
-			if _, err := exec.LookPath("corepack"); err != nil {
+			// mise-installed binaries (node, npm, corepack once
+			// installed) are NOT on bare PATH in a non-interactive
+			// subprocess like this one — mise's shim/activation only
+			// takes effect through its shell hook (a real interactive
+			// shell's precmd), which this exec.Command call is not.
+			// `mise exec node -- <cmd>` is mise's own documented
+			// primitive for running a command against a managed
+			// toolchain without that shell integration — confirmed via
+			// a real Ubuntu container run where a bare `exec.LookPath`
+			// approach found nothing even immediately after `mise
+			// install` had genuinely succeeded in the very same process
+			// tree.
+			miseBin, err := kinds.ResolveBinary("mise")
+			if err != nil {
+				// Resolved fresh here, not via a bare "mise" command
+				// name — devboost's own process PATH never includes
+				// kinds.ManagedBinDir, so a literal exec.Command("mise",
+				// ...) silently fails "not found" on a fresh machine
+				// where mise was just installed moments earlier in this
+				// same apply run. Found via a real Ubuntu container run.
+				return fmt.Errorf("mise not found — its own install step may have failed earlier in this apply: %w", err)
+			}
+			runViaMiseNode := func(args ...string) *exec.Cmd {
+				return exec.Command(miseBin, append([]string{"exec", "node", "--"}, args...)...)
+			}
+
+			if err := runViaMiseNode("corepack", "--version").Run(); err != nil {
 				// Node's own TSC decision (nodejs/node#51981) explicitly
 				// names this as the replacement workflow: "instead of
 				// running `corepack enable` they'd run `npm install -g
 				// corepack`." Matching upstream's own recommendation
 				// rather than working around their decision.
 				fmt.Println("corepack not found (expected on Node 25+, which no longer bundles it) — installing via npm")
-				if _, err := exec.LookPath("npm"); err != nil {
-					return fmt.Errorf("corepack missing and npm not found — cannot install corepack (is toolchains.enable_mise's node toolchain actually installed?)")
-				}
-				if err := exec.Command("npm", "install", "-g", "corepack").Run(); err != nil {
-					return fmt.Errorf("npm install -g corepack: %w", err)
+				installErr := runViaMiseNode("npm", "install", "-g", "corepack").Run()
+				if installErr != nil {
+					return fmt.Errorf("npm install -g corepack: %w (is toolchains.enable_mise's node toolchain actually installed?)", installErr)
 				}
 			}
-			return exec.Command("corepack", "enable").Run()
+			return runViaMiseNode("corepack", "enable").Run()
 		},
 	})
 }
@@ -86,6 +110,16 @@ func Corepack(cfg *config.Config) []engine.Resource {
 		{
 			ID:   "corepack",
 			Kind: kinds.CommandGuarded{ID: "corepack_enabled", Wants: "corepack pnpm/yarn shims enabled"},
+			// corepack needs mise's Node toolchain to exist first (it
+			// ships bundled with Node on versions that still bundle it,
+			// or needs `npm install -g corepack` on 25+, either way
+			// requiring mise's node@... to have already converged).
+			// Found missing via a real Ubuntu container run, where mise
+			// itself had to be installed (see linuxvendor.go) before its
+			// own toolchain-converge resource could run, and corepack
+			// ran before either had happened — see mise_toolchains's ID
+			// in mise.go.
+			DependsOn: []string{"mise_toolchains"},
 		},
 	}
 }

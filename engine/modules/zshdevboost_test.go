@@ -18,6 +18,7 @@ func TestRenderZshDevboostDefaults(t *testing.T) {
 		"direnv hook zsh",
 		"CLICOLOR=1",
 		"alias ls=",
+		`PATH="$HOME/.local/bin:$PATH"`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("expected default-enabled output to contain %q, got:\n%s", want, got)

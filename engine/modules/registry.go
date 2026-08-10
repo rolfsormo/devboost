@@ -31,7 +31,8 @@ type Module struct {
 // registration in a sensible order still matters for doctor's grouped
 // output to read naturally top to bottom.
 var All = []Module{
-	{Name: "pkg", Resources: func(cfg *config.Config, os kinds.OS) []engine.Resource { return Pkg(cfg) }},
+	{Name: "pkg", Resources: Pkg},
+	{Name: "linux_vendor_installs", Resources: LinuxVendorInstalls},
 	{Name: "zsh", Resources: func(cfg *config.Config, os kinds.OS) []engine.Resource { return Zsh(cfg) }},
 	{Name: "znap", Resources: func(cfg *config.Config, os kinds.OS) []engine.Resource { return Znap(cfg) }},
 	{Name: "starship", Resources: func(cfg *config.Config, os kinds.OS) []engine.Resource { return Starship(cfg) }},

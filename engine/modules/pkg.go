@@ -46,12 +46,30 @@ var defaultBasePackages = []string{
 //     different problem. Its own community is real but noticeably
 //     smaller than ripgrep/fd/bat's; don't read its inclusion here as
 //     ripgrep-level consensus.
-func Pkg(cfg *config.Config) []engine.Resource {
+// Pkg excludes any package this OS's own package manager doesn't
+// actually have (see linuxvendor.go's aptGapPackages/dnfGapPackages,
+// confirmed by directly querying real Ubuntu/Fedora containers — apt
+// and dnf both silently 404 on several of devboost's default packages
+// otherwise, which used to abort the entire apply; see the Package
+// kind's installAll fix). LinuxVendorInstalls converges the excluded
+// packages via each tool's own official install method instead — see
+// registry.go for where that gets wired in alongside this.
+func Pkg(cfg *config.Config, os kinds.OS) []engine.Resource {
 	names := cfg.GetList("packages.base")
 	if len(names) == 0 {
 		names = defaultBasePackages
 	}
+
+	gap := linuxGapFor(os)
+	var apt []string
+	for _, name := range names {
+		if gap[name] {
+			continue
+		}
+		apt = append(apt, name)
+	}
+
 	return []engine.Resource{
-		{ID: "base_packages", Kind: kinds.Package{Names: names}},
+		{ID: "base_packages", Kind: kinds.Package{Names: apt}},
 	}
 }

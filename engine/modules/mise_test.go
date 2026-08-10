@@ -9,6 +9,24 @@ func TestMiseDisabledWhenMiseConfigDisabled(t *testing.T) {
 	}
 }
 
+// TestMiseAlwaysDeclaresResourceWhenEnabled is a regression test for a
+// real bug found via a live Ubuntu container run: Mise() used to gate
+// itself off entirely with exec.LookPath("mise") at the moment this
+// resource list was built — meaning if a DIFFERENT resource (see
+// linuxvendor.go) installs the mise binary earlier in the SAME apply
+// run, Mise()'s own toolchain-converge step would never even be
+// declared, let alone run, because the check happened before any
+// resource had executed. Mise() must always declare its resource when
+// enabled — availability is now checked live inside Converge (see the
+// init() in mise.go), not at construction time.
+func TestMiseAlwaysDeclaresResourceWhenEnabled(t *testing.T) {
+	cfg := loadFixtureConfig(t, "")
+	got := Mise(cfg)
+	if len(got) != 1 {
+		t.Fatalf("expected exactly one resource regardless of whether mise is currently on PATH, got %d", len(got))
+	}
+}
+
 func TestMiseToolchainsArgs(t *testing.T) {
 	m := miseToolchains{node: "lts", python: "3.14", goVersion: "1.26", rust: "stable", deno: "lts"}
 	args := m.args()
