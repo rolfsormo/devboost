@@ -20,6 +20,13 @@ with OS/tooling-specific adjustments.
 - `devboost clean --dry-run` support (previously apply-only in the bash version's port).
 - Every module that picks a specific tool now documents why, as a doc comment above its constructor — adoption/reputation research, first-party guidance, and an honest confidence level (well-documented consensus vs. taste vs. now-questionable). See `.agents/skills/devboost-module-author/SKILL.md` for the process used to write these.
 - Explicit `DependsOn` on resources — a real dependency graph with topological sort and cycle detection, replacing the bash version's implicit, hand-maintained module registration order.
+- **Real Debian/Ubuntu and Fedora support for tools apt/dnf don't package.** Found via the first genuine end-to-end `apply` run this project has ever done on fresh Linux (previously only `--dry-run` was tested): lazygit, mise, atuin, starship, dust, and procs (varies by distro) aren't packaged at all on stock apt/dnf — the bash tool had this exact same gap, silently. `kinds.VendorInstall` (fetch-and-run the tool's own official installer) and `kinds.GitHubReleaseInstall` (download+extract the latest GitHub release for tools with no installer script at all — lazygit, procs) now converge these into `~/.local/bin`, added to `PATH` by the zsh module's own rendered config. See `docs/` and `ARCHITECTURE.md`'s Resource Kinds section.
+
+### Fixed
+- **A failed resource no longer aborts the whole `apply`.** `engine.DiffAndExecute` previously stopped the entire run on any resource's `Execute` error — found as a real, current-state blocker via the Linux testing above (one apt package genuinely unavailable silently prevented zsh/tmux/git config and everything else from converging). Failed resources and everything transitively depending on them are now skipped individually; everything else still converges. `Package.Execute` similarly no longer stops at the first failed package — it attempts all of them and reports every failure together.
+- **`Mise()`/`Services()` no longer gate themselves off at module-construction time.** Both used to decide "does this resource even exist" via `exec.LookPath` before any resource had executed — meaning neither could ever see a tool a *different* resource installs earlier in the same `apply` run (e.g. mise's own toolchain-converge step silently never ran on a machine where mise itself needed installing first). Availability is now checked fresh inside each resource's own `Satisfied`/`Converge`.
+- **Managed-tool invocations resolve their real path, not a bare command name.** devboost's own process `PATH` never includes `~/.local/bin` (only a future shell gets that, via the zsh module) — `exec.Command("mise", ...)` from inside devboost silently failed "not found" even moments after mise had genuinely just been installed. Fixed via `kinds.ResolveBinary`.
+- `corepack` now explicitly `DependsOn`s `mise_toolchains` — it needs mise's Node toolchain to exist first, previously an undeclared/accidental ordering assumption.
 
 ### Removed
 - The bash implementation (`core/`, `modules/`, `build.sh`, `devboost.sh`, `devboost.sh.in`) and its bash-specific test suite.
@@ -31,6 +38,10 @@ with OS/tooling-specific adjustments.
 ### Known gaps carried forward from the bash version (not yet re-implemented)
 - Automatic in-tool warning when a user's config predates the current MAJOR version (see [AGENTS.md](AGENTS.md#5-versioning-strategy)).
 - Release builds are cut by hand for now (no GitHub Actions release pipeline yet) — see [v2.0.0](https://github.com/rolfsormo/devboost/releases/tag/v2.0.0).
+- No GitHub Actions CI runs on this repo — deliberate, not a gap: local development cost is effectively free, GitHub Actions spend is not. All testing (`go build`/`go vet`/`go test ./...`, `tests/test-install.sh`, and real Docker container runs for Linux) is run locally before pushing.
+
+### Known external gap (not devboost's to fix)
+- mise has its own bug resolving `deno@lts` on Linux (malformed release URL — confirmed reproducible on a real Ubuntu 24.04 container, see [issue #15](https://github.com/rolfsormo/devboost/issues/15)). node/python/go/rust all install correctly via the same mechanism; only deno is affected. `Mise()`'s `Converge` already degrades gracefully (warns, doesn't fail the whole run) when this happens.
 
 ## [1.4.0] - 2026-08-08
 

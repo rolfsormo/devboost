@@ -148,6 +148,38 @@ requires writing a real Go implementation in `kinds`, registered via
 This is intentional friction — it must never be the easy path when a
 typed kind is achievable instead.
 
+`VendorInstall` and `GitHubReleaseInstall` handle tools with no package
+on a given platform at all (confirmed by directly querying real
+apt/dnf, not assumed: lazygit, mise, atuin, starship, dust, and procs
+aren't packaged on stock Debian/Ubuntu or Fedora, varying by distro).
+`VendorInstall` fetches and runs a tool's own official non-interactive
+install script; `GitHubReleaseInstall` resolves and extracts a project's
+latest GitHub release binary when no install script exists at all. Both
+install into `kinds.ManagedBinDir` (`~/.local/bin`), forced explicitly
+via each installer's own destination env var — several default
+elsewhere otherwise (atuin: `~/.atuin/bin`; starship/dust:
+`/usr/local/bin`) — and both are checked for presence via
+`kinds.BinaryAvailable`, which — unlike a bare `exec.LookPath` — checks
+`ManagedBinDir` directly, not just the current process's `PATH` (which
+never includes it; only a future shell does, via the zsh module's own
+rendered `PATH` export). Any kind or module invoking one of these tools
+directly must resolve its real path via `kinds.ResolveBinary` for the
+same reason — a literal `exec.Command("mise", ...)` from inside
+devboost's own process silently fails "not found" even moments after
+mise was genuinely installed in the same `apply` run, confirmed via a
+real Ubuntu container test.
+
+Checks like `BinaryAvailable`/`ResolveBinary` are deliberately
+evaluated fresh every call (inside a kind's `Diff`/`Satisfied`/
+`Converge`), never decided once when a module's resource list is built
+— a module-construction-time-only check can never see a tool a
+*different* resource installs earlier in the same `apply` run. This was
+a real bug (`Mise()`/`Services()` both gated themselves off entirely at
+construction time), not just a style preference: if a check like this
+ever becomes expensive enough to need memoizing, that's an explicit
+opt-in at the call site, not something baked into the calling
+convention by default.
+
 ## Dependencies
 
 Resources declare explicit `DependsOn` when one resource's correctness
