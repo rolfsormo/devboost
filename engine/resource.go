@@ -39,12 +39,36 @@ type PendingOp struct {
 }
 
 // Resource is what a module declares: an ID plus a kind carrying its own
-// typed parameters, plus any other resources (by ID) that must converge
-// before this one is diffed.
+// typed parameters, plus any other resources that must converge before
+// this one is diffed — expressed two ways:
+//
+//   - DependsOn names other resources directly by ID. Use this for
+//     same-module, always-true orderings where the target's identity is
+//     genuinely part of this resource's own contract (e.g. tmux's
+//     plugin-install step DependsOn its own TPM clone — they're
+//     declared together, in the same function, so naming the sibling
+//     resource directly isn't a leak of anything).
+//   - NeedsProvider names a capability tag (see Provides) instead of a
+//     resource ID. Use this whenever the resource that actually
+//     satisfies the need varies by platform or config, and the
+//     declaring module has no business knowing which specific resource
+//     that turns out to be — e.g. "I need mise installed" is true
+//     regardless of whether mise came from a Homebrew formula, a pacman
+//     package, or its own install script on Linux (see
+//     linuxvendor.go/pkg.go). A module that hardcoded the concrete
+//     resource ID for each of those cases would need to know another
+//     module's internals just to express "I need this tool" — the
+//     opposite of what dependency declaration is supposed to hide. The
+//     engine resolves NeedsProvider into a real DependsOn-equivalent
+//     edge at topoSort time, by looking up which resource (if any)
+//     Provides that tag; ambiguous (more than one provider) or missing
+//     (zero providers) are both real errors, not silently ignored.
 type Resource struct {
-	ID        string
-	Kind      ResourceKind
-	DependsOn []string
+	ID            string
+	Kind          ResourceKind
+	DependsOn     []string
+	Provides      []string // capability tags this resource satisfies, e.g. "mise"
+	NeedsProvider []string // capability tags this resource requires some other resource to Provide
 }
 
 // ComputeDiff diffs every resource once, in topological order, without
@@ -108,6 +132,16 @@ func DiffAndExecute(resources []Resource, before func(PendingOp)) (ExecutionResu
 	if err != nil {
 		return ExecutionResult{}, err
 	}
+	// Resolved once more here (topoSort already validated it, this just
+	// needs the map itself) — dependsOnFailure must check the SAME
+	// effective dependency set topoSort ordered on, including
+	// NeedsProvider tags resolved to concrete IDs, or a resource whose
+	// dependency came from NeedsProvider (not DependsOn) would never
+	// correctly get skipped when its provider fails.
+	effectiveDeps, err := resolveProviders(resources)
+	if err != nil {
+		return ExecutionResult{}, err
+	}
 
 	result := ExecutionResult{Failed: map[string]error{}, Skipped: map[string]string{}}
 	// failedAncestor[id] = the ID of the failed (or itself-skipped)
@@ -115,7 +149,7 @@ func DiffAndExecute(resources []Resource, before func(PendingOp)) (ExecutionResu
 	failedAncestor := map[string]string{}
 
 	for _, r := range ordered {
-		if blocker, blocked := dependsOnFailure(r, failedAncestor); blocked {
+		if blocker, blocked := dependsOnFailure(r.ID, effectiveDeps, failedAncestor); blocked {
 			result.Skipped[r.ID] = blocker
 			failedAncestor[r.ID] = blocker
 			continue
@@ -145,12 +179,15 @@ func DiffAndExecute(resources []Resource, before func(PendingOp)) (ExecutionResu
 	return result, nil
 }
 
-// dependsOnFailure reports whether r transitively DependsOn a resource
-// that already failed or was itself skipped, and if so, the ID of that
-// originating failure (so every downstream resource in the chain reports
-// the same root cause, not just its immediate parent).
-func dependsOnFailure(r Resource, failedAncestor map[string]string) (blocker string, blocked bool) {
-	for _, dep := range r.DependsOn {
+// dependsOnFailure reports whether resource id transitively depends
+// (via its resolved effective dependencies — DependsOn plus any
+// NeedsProvider tags already resolved to concrete IDs, see
+// resolveProviders) on a resource that already failed or was itself
+// skipped, and if so, the ID of that originating failure (so every
+// downstream resource in the chain reports the same root cause, not
+// just its immediate parent).
+func dependsOnFailure(id string, effectiveDeps map[string][]string, failedAncestor map[string]string) (blocker string, blocked bool) {
+	for _, dep := range effectiveDeps[id] {
 		if origin, ok := failedAncestor[dep]; ok {
 			return origin, true
 		}
@@ -158,8 +195,11 @@ func dependsOnFailure(r Resource, failedAncestor map[string]string) (blocker str
 	return "", false
 }
 
-// topoSort orders resources so that every resource comes after everything
-// it DependsOn. Returns an error on an unknown dependency ID or a cycle.
+// topoSort orders resources so that every resource comes after
+// everything it DependsOn and everything it NeedsProvider (resolved to
+// concrete resource IDs first — see resolveProviders). Returns an error
+// on an unknown dependency ID, an unresolvable/ambiguous NeedsProvider,
+// or a cycle.
 func topoSort(resources []Resource) ([]Resource, error) {
 	byID := make(map[string]Resource, len(resources))
 	for _, r := range resources {
@@ -168,8 +208,18 @@ func topoSort(resources []Resource) ([]Resource, error) {
 		}
 		byID[r.ID] = r
 	}
+
+	// effectiveDeps[id] = r.DependsOn plus every NeedsProvider tag
+	// resolved to the concrete resource ID that Provides it. Kept
+	// separate from mutating Resource.DependsOn itself, so a Resource's
+	// own DependsOn field stays exactly what the caller declared.
+	effectiveDeps, err := resolveProviders(resources)
+	if err != nil {
+		return nil, err
+	}
+
 	for _, r := range resources {
-		for _, dep := range r.DependsOn {
+		for _, dep := range effectiveDeps[r.ID] {
 			if _, ok := byID[dep]; !ok {
 				return nil, fmt.Errorf("resource %s: depends on unknown resource %q", r.ID, dep)
 			}
@@ -193,14 +243,13 @@ func topoSort(resources []Resource) ([]Resource, error) {
 			return fmt.Errorf("dependency cycle involving resource %q", id)
 		}
 		state[id] = visiting
-		r := byID[id]
-		for _, dep := range r.DependsOn {
+		for _, dep := range effectiveDeps[id] {
 			if err := visit(dep); err != nil {
 				return err
 			}
 		}
 		state[id] = visited
-		ordered = append(ordered, r)
+		ordered = append(ordered, byID[id])
 		return nil
 	}
 
@@ -210,4 +259,42 @@ func topoSort(resources []Resource) ([]Resource, error) {
 		}
 	}
 	return ordered, nil
+}
+
+// resolveProviders builds, for every resource ID, its DependsOn list
+// plus its NeedsProvider tags resolved to the concrete resource ID that
+// Provides each tag. A tag with zero providers or more than one
+// provider is a real error — silently picking "the first one" would
+// hide a genuine configuration mistake (a module's NeedsProvider tag
+// that no longer matches any Provides tag after a rename, or two
+// modules accidentally claiming to Provide the same capability).
+func resolveProviders(resources []Resource) (map[string][]string, error) {
+	providerOf := make(map[string]string) // tag -> resource ID
+	ambiguous := make(map[string][]string)
+	for _, r := range resources {
+		for _, tag := range r.Provides {
+			if existing, ok := providerOf[tag]; ok {
+				ambiguous[tag] = append(ambiguous[tag], existing, r.ID)
+				continue
+			}
+			providerOf[tag] = r.ID
+		}
+	}
+
+	effective := make(map[string][]string, len(resources))
+	for _, r := range resources {
+		deps := append([]string{}, r.DependsOn...)
+		for _, tag := range r.NeedsProvider {
+			if ids, isAmbiguous := ambiguous[tag]; isAmbiguous {
+				return nil, fmt.Errorf("resource %s: capability %q is provided by more than one resource: %v", r.ID, tag, ids)
+			}
+			providerID, ok := providerOf[tag]
+			if !ok {
+				return nil, fmt.Errorf("resource %s: no resource provides required capability %q", r.ID, tag)
+			}
+			deps = append(deps, providerID)
+		}
+		effective[r.ID] = deps
+	}
+	return effective, nil
 }

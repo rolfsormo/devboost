@@ -80,3 +80,34 @@ func TestPkgKeepsGapPackagesOnMacOS(t *testing.T) {
 		t.Fatalf("expected lazygit still in the brew-managed list on macOS (no gap there), got %v", p.Names)
 	}
 }
+
+// TestPkgProvidesMatchesItsActualPackageList is a regression test for
+// the NeedsProvider mechanism's correctness: base_packages.Provides
+// must reflect exactly what this resource actually installs on THIS
+// platform, so other modules' NeedsProvider: []string{"mise"} (etc.)
+// resolves correctly regardless of which packages got excluded by the
+// gap filter. On Ubuntu, mise is excluded (see the gap test above), so
+// it must NOT appear in Provides there either — only on platforms where
+// base_packages genuinely installs it.
+func TestPkgProvidesMatchesItsActualPackageList(t *testing.T) {
+	cfg := loadFixtureConfig(t, "")
+
+	darwin := Pkg(cfg, kinds.OSDarwin)[0]
+	if !containsString(darwin.Provides, "mise") {
+		t.Fatalf("expected base_packages to Provide mise on Darwin, got %v", darwin.Provides)
+	}
+
+	ubuntu := Pkg(cfg, kinds.OSLinuxUbuntu)[0]
+	if containsString(ubuntu.Provides, "mise") {
+		t.Fatalf("expected base_packages to NOT Provide mise on Ubuntu (it's a real apt gap, converged elsewhere), got %v", ubuntu.Provides)
+	}
+}
+
+func containsString(list []string, want string) bool {
+	for _, s := range list {
+		if s == want {
+			return true
+		}
+	}
+	return false
+}

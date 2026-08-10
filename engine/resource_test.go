@@ -211,3 +211,170 @@ type dynamicKind struct {
 }
 
 func (d dynamicKind) Diff() (*PendingOp, error) { return d.diff() }
+
+// TestNeedsProviderResolvesToConcreteProvider is the core scenario this
+// mechanism exists for: a resource declares NeedsProvider: "mise"
+// without knowing (or caring) which concrete resource ID actually
+// installs mise on this platform — that's resolved by the engine, not
+// hardcoded by the declaring module.
+func TestNeedsProviderResolvesToConcreteProvider(t *testing.T) {
+	var ran []string
+	provider := Resource{
+		ID:       "vendor_install_mise",
+		Kind:     fakeKind{pending: true, desc: "install mise", ran: &ran, id: "vendor_install_mise"},
+		Provides: []string{"mise"},
+	}
+	consumer := Resource{
+		ID:            "mise_toolchains",
+		NeedsProvider: []string{"mise"},
+		Kind: dynamicKind{
+			diff: func() (*PendingOp, error) {
+				if len(ran) == 0 {
+					t.Fatal("mise_toolchains was diffed before its provider (vendor_install_mise) executed")
+				}
+				return nil, nil
+			},
+		},
+	}
+
+	_, err := DiffAndExecute([]Resource{consumer, provider}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(ran) != 1 || ran[0] != "vendor_install_mise" {
+		t.Fatalf("expected the provider to have executed, ran = %v", ran)
+	}
+}
+
+// TestNeedsProviderDifferentConcreteProviderPerPlatform proves the
+// actual point: two DIFFERENT resources can each Provide "mise" across
+// two separate resource lists (simulating two platforms), and the same
+// consumer resolves to whichever one is actually present — the
+// consuming module never names either concrete ID.
+func TestNeedsProviderDifferentConcreteProviderPerPlatform(t *testing.T) {
+	makeConsumer := func(ran *[]string) Resource {
+		return Resource{
+			ID:            "mise_toolchains",
+			NeedsProvider: []string{"mise"},
+			Kind:          fakeKind{pending: true, desc: "configure mise", ran: ran, id: "mise_toolchains"},
+		}
+	}
+
+	t.Run("linux platform: vendor_install_mise provides it", func(t *testing.T) {
+		var ran []string
+		provider := Resource{ID: "vendor_install_mise", Kind: fakeKind{pending: true, desc: "x", ran: &ran, id: "vendor_install_mise"}, Provides: []string{"mise"}}
+		result, err := DiffAndExecute([]Resource{makeConsumer(&ran), provider}, nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(result.Applied) != 2 {
+			t.Fatalf("expected both resources to apply, got %+v", result)
+		}
+	})
+
+	t.Run("macOS platform: base_packages provides it instead", func(t *testing.T) {
+		var ran []string
+		provider := Resource{ID: "base_packages", Kind: fakeKind{pending: true, desc: "x", ran: &ran, id: "base_packages"}, Provides: []string{"mise"}}
+		result, err := DiffAndExecute([]Resource{makeConsumer(&ran), provider}, nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(result.Applied) != 2 {
+			t.Fatalf("expected both resources to apply, got %+v", result)
+		}
+	})
+}
+
+func TestNeedsProviderErrorsWhenNoProviderExists(t *testing.T) {
+	consumer := Resource{ID: "mise_toolchains", NeedsProvider: []string{"mise"}, Kind: fakeKind{}}
+	if _, err := DiffAndExecute([]Resource{consumer}, nil); err == nil {
+		t.Fatal("expected an error when no resource Provides the required capability")
+	}
+}
+
+func TestNeedsProviderErrorsWhenProviderIsAmbiguous(t *testing.T) {
+	a := Resource{ID: "a", Provides: []string{"mise"}, Kind: fakeKind{}}
+	b := Resource{ID: "b", Provides: []string{"mise"}, Kind: fakeKind{}}
+	consumer := Resource{ID: "consumer", NeedsProvider: []string{"mise"}, Kind: fakeKind{}}
+	if _, err := DiffAndExecute([]Resource{a, b, consumer}, nil); err == nil {
+		t.Fatal("expected an error when two resources both Provide the same capability")
+	}
+}
+
+// TestNeedsProviderSkipsConsumerWhenProviderFails proves the
+// partial-failure mechanism (ExecutionResult.Skipped) correctly follows
+// NeedsProvider-resolved edges, not just literal DependsOn — a
+// NeedsProvider dependency is a real dependency for skip-propagation
+// purposes too.
+func TestNeedsProviderSkipsConsumerWhenProviderFails(t *testing.T) {
+	var ran []string
+	failingProvider := Resource{
+		ID:       "vendor_install_mise",
+		Kind:     fakeKind{pending: true, desc: "fails", ran: &ran, id: "vendor_install_mise", failErr: errors.New("boom")},
+		Provides: []string{"mise"},
+	}
+	consumer := Resource{
+		ID:            "mise_toolchains",
+		NeedsProvider: []string{"mise"},
+		Kind:          fakeKind{pending: true, desc: "configure mise", ran: &ran, id: "mise_toolchains"},
+	}
+
+	result, err := DiffAndExecute([]Resource{failingProvider, consumer}, nil)
+	if err != nil {
+		t.Fatalf("unexpected top-level error: %v", err)
+	}
+	if _, ok := result.Failed["vendor_install_mise"]; !ok {
+		t.Fatalf("expected vendor_install_mise in Failed, got %+v", result.Failed)
+	}
+	if blocker, ok := result.Skipped["mise_toolchains"]; !ok || blocker != "vendor_install_mise" {
+		t.Fatalf("expected mise_toolchains skipped due to vendor_install_mise, got %+v", result.Skipped)
+	}
+	if len(ran) != 0 {
+		t.Fatalf("expected mise_toolchains to never execute, ran = %v", ran)
+	}
+}
+
+func TestComputeDiffResolvesNeedsProvider(t *testing.T) {
+	provider := Resource{ID: "vendor_install_mise", Kind: fakeKind{}, Provides: []string{"mise"}}
+	consumer := Resource{ID: "mise_toolchains", NeedsProvider: []string{"mise"}, Kind: fakeKind{}}
+	// Just needs topoSort (called internally by ComputeDiff) to resolve
+	// without error — Plan and Doctor both go through ComputeDiff, not
+	// DiffAndExecute, so NeedsProvider must resolve there too, not only
+	// in the execute path.
+	if _, err := ComputeDiff([]Resource{consumer, provider}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestComputeDiffErrorsOnUnresolvedNeedsProvider(t *testing.T) {
+	consumer := Resource{ID: "mise_toolchains", NeedsProvider: []string{"mise"}, Kind: fakeKind{}}
+	if _, err := ComputeDiff([]Resource{consumer}); err == nil {
+		t.Fatal("expected an error when Plan/Doctor's ComputeDiff hits an unresolvable NeedsProvider")
+	}
+}
+
+func TestNeedsProviderCombinesWithDependsOn(t *testing.T) {
+	var ran []string
+	miseInstall := Resource{ID: "vendor_install_mise", Kind: fakeKind{pending: true, desc: "x", ran: &ran, id: "vendor_install_mise"}, Provides: []string{"mise"}}
+	miseToolchains := Resource{
+		ID:            "mise_toolchains",
+		NeedsProvider: []string{"mise"},
+		Kind: dynamicKind{diff: func() (*PendingOp, error) {
+			if len(ran) < 1 {
+				t.Fatal("mise_toolchains diffed before its provider ran")
+			}
+			return nil, nil
+		}},
+	}
+	corepack := Resource{
+		ID:        "corepack",
+		DependsOn: []string{"mise_toolchains"}, // plain DependsOn, alongside the other resource's NeedsProvider
+		Kind: dynamicKind{diff: func() (*PendingOp, error) {
+			return nil, nil // mise_toolchains has no PendingOp (nil diff) in this test, so nothing to check ordering against beyond "no panic"
+		}},
+	}
+
+	if _, err := DiffAndExecute([]Resource{corepack, miseToolchains, miseInstall}, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

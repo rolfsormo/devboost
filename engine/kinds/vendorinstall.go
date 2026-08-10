@@ -61,10 +61,15 @@ func BinaryAvailable(name string) (bool, error) {
 }
 
 // ResolveBinary returns the actual absolute path to name — checking
-// PATH first via exec.LookPath, then ManagedBinDir directly — for
-// callers that need to actually exec it, not just check presence.
+// PATH first via exec.LookPath, then ManagedBinDir directly only if
+// that fails — for callers that need to actually exec it, not just
+// check presence. PATH is tried first, deliberately: on a machine where
+// the tool genuinely is already on PATH (the common case once a user
+// has actually restarted their shell after a previous apply), this is
+// exactly what exec.LookPath would have done anyway — ManagedBinDir is
+// purely a fallback for the one real gap, not a first-choice override.
 //
-// This distinction matters: devboost's own process PATH never includes
+// The gap it fills: devboost's own process PATH never includes
 // ManagedBinDir (it's only added to *future* shells via the zsh
 // module's rendered PATH export — see zshdevboost.go), so a bare
 // exec.Command("mise", ...) call from inside devboost itself silently
@@ -74,7 +79,8 @@ func BinaryAvailable(name string) (bool, error) {
 // where this exact failure mode was masked by a swallowed error (see
 // mise.go's Converge, which discarded `mise use`'s error entirely) —
 // any module invoking a managed-install tool (mise, atuin, starship,
-// dust) by literal command name must resolve it through here first.
+// dust) by literal command name must resolve it through here first
+// (or, better, via Command below).
 func ResolveBinary(name string) (string, error) {
 	if path, err := exec.LookPath(name); err == nil {
 		return path, nil
@@ -88,6 +94,32 @@ func ResolveBinary(name string) (string, error) {
 		return candidate, nil
 	}
 	return "", fmt.Errorf("%s not found on PATH or in %s", name, dir)
+}
+
+// Command is exec.Command for managed-install tools (mise, atuin,
+// starship, dust, lazygit, procs): it resolves name through
+// ResolveBinary first, so it correctly finds a tool that landed in
+// ManagedBinDir instead of on PATH. Falls back to the bare name
+// unresolved if ResolveBinary fails entirely, so the resulting exec
+// still produces exec.Command's familiar "executable file not found in
+// $PATH" error rather than a confusing empty-path failure.
+//
+// Every call site that invokes one of these tools by name should use
+// this instead of exec.Command directly — the one place this
+// resolution logic needs to exist, rather than re-implemented (or
+// forgotten) at each site, the direct cause of a real bug found via a
+// live Ubuntu container run (mise.go and corepack.go each separately
+// needed the same fix). Tools that are never installed via
+// VendorInstall/GitHubReleaseInstall (git, brew, apt-get, sh, and any
+// plain PATH-only system tool) have no reason to route through here —
+// this is specifically the managed-tool case, not a blanket
+// exec.Command replacement.
+func Command(name string, args ...string) *exec.Cmd {
+	resolved, err := ResolveBinary(name)
+	if err != nil {
+		resolved = name
+	}
+	return exec.Command(resolved, args...)
 }
 
 // VendorInstall declares "install this tool via its own official

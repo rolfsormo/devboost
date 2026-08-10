@@ -46,6 +46,7 @@ var defaultBasePackages = []string{
 //     different problem. Its own community is real but noticeably
 //     smaller than ripgrep/fd/bat's; don't read its inclusion here as
 //     ripgrep-level consensus.
+//
 // Pkg excludes any package this OS's own package manager doesn't
 // actually have (see linuxvendor.go's aptGapPackages/dnfGapPackages,
 // confirmed by directly querying real Ubuntu/Fedora containers — apt
@@ -70,6 +71,22 @@ func Pkg(cfg *config.Config, os kinds.OS) []engine.Resource {
 	}
 
 	return []engine.Resource{
-		{ID: "base_packages", Kind: kinds.Package{Names: apt}},
+		{
+			ID:   "base_packages",
+			Kind: kinds.Package{Names: apt},
+			// Provides the real, untranslated package names actually in
+			// this resource's list — so any other resource can declare
+			// NeedsProvider: []string{"mise"} (etc.) without knowing OR
+			// caring whether mise came from here (brew/pacman have it)
+			// or from linuxvendor.go's vendor_install_mise (apt/dnf
+			// don't) — the engine resolves whichever one is actually
+			// present on this run to a real dependency edge. See
+			// engine.Resource's doc comment for the full reasoning; this
+			// replaced an earlier, worse design where Mise()/Corepack()
+			// each had to know linuxvendor.go's exact resource ID and
+			// which platforms use which provider — a leaky abstraction
+			// the user correctly flagged as "insane."
+			Provides: apt,
+		},
 	}
 }

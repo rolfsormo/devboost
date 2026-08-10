@@ -12,19 +12,6 @@ import (
 func init() {
 	kinds.RegisterCommand("atuin_brew_service_running", kinds.GuardedCommand{
 		Satisfied: func(any) (bool, error) {
-			// Checked fresh here, not once when Services()'s resource
-			// list was built — atuin might be installed by a different
-			// resource earlier in the same apply run (e.g. Pkg's brew
-			// install). A module-construction-time-only availability
-			// check would silently never see that; the same class of
-			// bug found via a real Ubuntu container run and fixed the
-			// same way in mise.go — see kinds.BinaryAvailable's doc
-			// comment for the fuller reasoning.
-			if available, err := kinds.BinaryAvailable("atuin"); err != nil {
-				return false, err
-			} else if !available {
-				return true, nil // nothing to converge yet — not a failure, atuin's own install may just not have run yet
-			}
 			out, err := exec.Command("brew", "services", "list").Output()
 			if err != nil {
 				// brew not present/working — nothing this resource can
@@ -76,15 +63,21 @@ func Services(cfg *config.Config, os kinds.OS) []engine.Resource {
 	if os != kinds.OSDarwin {
 		return nil
 	}
-	// Not gated on exec.LookPath("atuin") here — that check now lives in
-	// the registered command's Satisfied (see the init() above), checked
-	// fresh at Diff time rather than once when this resource list is
-	// built, so it correctly sees atuin if Pkg's brew install (same
-	// apply run) installs it first.
 	return []engine.Resource{
 		{
 			ID:   "atuin_service",
 			Kind: kinds.CommandGuarded{ID: "atuin_brew_service_running", Wants: "atuin service started via brew"},
+			// Real dependency on whichever resource actually installs
+			// atuin — pkg.go's base_packages Provides "atuin" on Darwin
+			// (the only platform this resource exists on). Not a
+			// hardcoded DependsOn on "base_packages" directly: this
+			// module still shouldn't need to know that ID, even though
+			// on Darwin specifically there's currently only ever one
+			// possible provider — NeedsProvider stays the uniform way
+			// every module expresses "I need tool X," regardless of how
+			// many platforms happen to need the indirection today. See
+			// engine.Resource's doc comment and mise.go's equivalent use.
+			NeedsProvider: []string{"atuin"},
 		},
 	}
 }

@@ -17,13 +17,34 @@ func TestMiseDisabledWhenMiseConfigDisabled(t *testing.T) {
 // run, Mise()'s own toolchain-converge step would never even be
 // declared, let alone run, because the check happened before any
 // resource had executed. Mise() must always declare its resource when
-// enabled — availability is now checked live inside Converge (see the
-// init() in mise.go), not at construction time.
+// enabled; ordering is now handled structurally via NeedsProvider (see
+// TestMiseDependsOnMiseProvider below), not by gating construction on
+// current PATH state.
 func TestMiseAlwaysDeclaresResourceWhenEnabled(t *testing.T) {
 	cfg := loadFixtureConfig(t, "")
 	got := Mise(cfg)
 	if len(got) != 1 {
 		t.Fatalf("expected exactly one resource regardless of whether mise is currently on PATH, got %d", len(got))
+	}
+}
+
+// TestMiseDependsOnMiseProvider is a regression test for the second,
+// deeper fix: mise_toolchains previously had NO real dependency at all
+// on whatever resource actually installs mise — it worked only by
+// accident of module registration order. NeedsProvider: []string{"mise"}
+// makes this a real, engine-enforced dependency instead, resolved to
+// whichever concrete resource Provides "mise" on a given platform
+// (pkg.go's base_packages, or linuxvendor.go's vendor_install_mise) —
+// this module deliberately does NOT know or care which one that is.
+func TestMiseDependsOnMiseProvider(t *testing.T) {
+	cfg := loadFixtureConfig(t, "")
+	got := Mise(cfg)
+	if len(got) != 1 {
+		t.Fatalf("expected exactly one resource, got %d", len(got))
+	}
+	needs := got[0].NeedsProvider
+	if len(needs) != 1 || needs[0] != "mise" {
+		t.Fatalf("expected mise_toolchains to NeedsProvider [\"mise\"], got %v", needs)
 	}
 }
 

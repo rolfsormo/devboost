@@ -72,6 +72,7 @@ disabled = true
 //   - Per-language symbols/styles and [package] disabled = true are
 //     mostly about visual noise reduction and match common community
 //     presets, but again no single canonical source to point to.
+//
 // If you're revisiting this file, it's a reasonable candidate for the
 // periodic adversarial re-review described in issue #9 — there's more
 // room for taste-based disagreement here than in, say, delta's config.

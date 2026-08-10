@@ -118,8 +118,9 @@ func LinuxVendorInstalls(cfg *config.Config, os kinds.OS) []engine.Resource {
 			env["MISE_INSTALL_PATH"] = filepath.Join(binDir, "mise")
 		}
 		resources = append(resources, engine.Resource{
-			ID:   "vendor_install_mise",
-			Kind: kinds.VendorInstall{BinaryName: "mise", ScriptURL: "https://mise.run", Env: env},
+			ID:       "vendor_install_mise",
+			Kind:     kinds.VendorInstall{BinaryName: "mise", ScriptURL: "https://mise.run", Env: env},
+			Provides: []string{"mise"},
 		})
 	}
 	if gap["atuin"] {
@@ -134,6 +135,7 @@ func LinuxVendorInstalls(cfg *config.Config, os kinds.OS) []engine.Resource {
 				// ATUIN_INSTALL_DIR: default is ~/.atuin/bin — redirect to ManagedBinDir.
 				Env: withBinDir("ATUIN_INSTALL_DIR", map[string]string{"ATUIN_NO_MODIFY_PATH": "1"}),
 			},
+			Provides: []string{"atuin"},
 		})
 	}
 	if gap["starship"] {
@@ -145,6 +147,7 @@ func LinuxVendorInstalls(cfg *config.Config, os kinds.OS) []engine.Resource {
 				// BIN_DIR: default is /usr/local/bin, needs sudo unless redirected.
 				Env: withBinDir("BIN_DIR", map[string]string{"FORCE": "true"}),
 			},
+			Provides: []string{"starship"},
 		})
 	}
 	if gap["dust"] {
@@ -157,18 +160,21 @@ func LinuxVendorInstalls(cfg *config.Config, os kinds.OS) []engine.Resource {
 				// else ~/.local/bin — force consistency either way.
 				Env: withBinDir("DUST_INSTALL", nil),
 			},
+			Provides: []string{"dust"},
 		})
 	}
 	if gap["lazygit"] {
 		resources = append(resources, engine.Resource{
-			ID:   "github_release_install_lazygit",
-			Kind: lazygitReleaseInstall(),
+			ID:       "github_release_install_lazygit",
+			Kind:     lazygitReleaseInstall(),
+			Provides: []string{"lazygit"},
 		})
 	}
 	if gap["procs"] {
 		resources = append(resources, engine.Resource{
-			ID:   "github_release_install_procs",
-			Kind: procsReleaseInstall(),
+			ID:       "github_release_install_procs",
+			Kind:     procsReleaseInstall(),
+			Provides: []string{"procs"},
 		})
 	}
 	return resources

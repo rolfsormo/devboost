@@ -38,19 +38,16 @@ func init() {
 			// a real Ubuntu container run where a bare `exec.LookPath`
 			// approach found nothing even immediately after `mise
 			// install` had genuinely succeeded in the very same process
-			// tree.
-			miseBin, err := kinds.ResolveBinary("mise")
-			if err != nil {
-				// Resolved fresh here, not via a bare "mise" command
-				// name — devboost's own process PATH never includes
-				// kinds.ManagedBinDir, so a literal exec.Command("mise",
-				// ...) silently fails "not found" on a fresh machine
-				// where mise was just installed moments earlier in this
-				// same apply run. Found via a real Ubuntu container run.
-				return fmt.Errorf("mise not found — its own install step may have failed earlier in this apply: %w", err)
-			}
+			// tree. kinds.Command (not exec.Command) resolves mise's own
+			// path the same way, in case mise itself landed in
+			// kinds.ManagedBinDir rather than on PATH — this resource's
+			// DependsOn: []string{"mise_toolchains"} (see Corepack
+			// below), combined with mise_toolchains' own
+			// NeedsProvider: []string{"mise"}, already transitively
+			// guarantees mise is installed by the time this runs; this
+			// is purely about finding it, not about ordering.
 			runViaMiseNode := func(args ...string) *exec.Cmd {
-				return exec.Command(miseBin, append([]string{"exec", "node", "--"}, args...)...)
+				return kinds.Command("mise", append([]string{"exec", "node", "--"}, args...)...)
 			}
 
 			if err := runViaMiseNode("corepack", "--version").Run(); err != nil {

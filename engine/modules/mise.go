@@ -28,26 +28,16 @@ func (m miseToolchains) args() []string {
 	}
 }
 
-// miseBin resolves mise's actual executable path — not just its literal
-// command name — since devboost's own process PATH never includes
-// kinds.ManagedBinDir (only a *future* shell gets that, via the zsh
-// module's rendered PATH export). A bare exec.Command("mise", ...) call
-// silently fails with "executable file not found" on a fresh machine
-// where mise was just installed moments earlier in this same apply run
-// — found via a real Ubuntu container run, where this exact failure was
-// masked because the caller discarded the error. Falls back to the
-// literal string "mise" if resolution fails, so the resulting exec
-// error is still the familiar, informative "not found" rather than an
-// empty path.
-func miseBin() string {
-	if path, err := kinds.ResolveBinary("mise"); err == nil {
-		return path
-	}
-	return "mise"
-}
-
 func currentMiseNodeVersion() string {
-	out, err := exec.Command(miseBin(), "current", "node").Output()
+	// kinds.Command, not exec.Command: devboost's own process PATH never
+	// includes kinds.ManagedBinDir (only a *future* shell gets that, via
+	// the zsh module's rendered PATH export) — a bare
+	// exec.Command("mise", ...) call silently fails "executable file
+	// not found" even immediately after mise_toolchains' NeedsProvider
+	// dependency guarantees mise itself has just been installed. Found
+	// via a real Ubuntu container run, where this exact failure was
+	// initially masked because the original code discarded the error.
+	out, err := kinds.Command("mise", "current", "node").Output()
 	if err != nil {
 		return ""
 	}
@@ -119,24 +109,7 @@ func init() {
 		// pending when this resource exists at all.
 		Satisfied: func(any) (bool, error) { return false, nil },
 		Converge: func(params any) error {
-			// Checked fresh at Converge time, not once when Mise()'s
-			// resource list was built — mise might be installed by a
-			// different resource earlier in this same apply run (e.g.
-			// linuxvendor.go on apt/dnf Linux, where mise has no
-			// package). A module-construction-time-only check would
-			// silently never see that; found via a real Ubuntu
-			// container run. If mise is genuinely still absent here
-			// (its own install resource failed), fail loudly rather
-			// than silently skip — same "surface it, don't hide it"
-			// choice as corepack's Converge.
-			if available, err := kinds.BinaryAvailable("mise"); err != nil {
-				return err
-			} else if !available {
-				return fmt.Errorf("mise not found — its own install step may have failed earlier in this apply")
-			}
-
 			t := params.(miseToolchains)
-			bin := miseBin()
 
 			prevNode := currentMiseNodeVersion()
 			var globals []string
@@ -145,16 +118,13 @@ func init() {
 			}
 
 			useArgs := append([]string{"use", "-g"}, t.args()...)
-			if out, err := exec.Command(bin, useArgs...).CombinedOutput(); err != nil {
+			if out, err := kinds.Command("mise", useArgs...).CombinedOutput(); err != nil {
 				// Worth surfacing, not silently discarding — a bare
 				// "some toolchains may not be available" from the
-				// install step below previously masked this entirely,
-				// including the case where mise itself couldn't be
-				// resolved at all (found via a real Ubuntu container
-				// run).
+				// install step below previously masked this entirely.
 				fmt.Fprintf(os.Stderr, "warning: mise use failed: %v\n%s\n", err, out)
 			}
-			if err := exec.Command(bin, "install").Run(); err != nil {
+			if err := kinds.Command("mise", "install").Run(); err != nil {
 				fmt.Fprintln(os.Stderr, "warning: some toolchains may not be available")
 			}
 
@@ -176,7 +146,7 @@ func init() {
 				return nil
 			}
 
-			nodeBin, err := exec.LookPath("node")
+			nodeBin, err := kinds.ResolveBinary("node")
 			if err != nil {
 				return nil
 			}
@@ -235,12 +205,6 @@ func Mise(cfg *config.Config) []engine.Resource {
 	if cfg.Get("toolchains.enable_mise", "true") != "true" {
 		return nil
 	}
-	// Not gated on exec.LookPath("mise") here — that check now lives in
-	// the registered command's Satisfied (see the init() above), checked
-	// fresh at Diff time rather than once when this resource list is
-	// built, so it correctly sees mise if a different resource in this
-	// same apply run installs it first (e.g. linuxvendor.go on apt/dnf
-	// Linux, where mise has no package).
 
 	t := miseToolchains{
 		node:      cfg.Get("toolchains.globals.node", "lts"),
@@ -253,6 +217,15 @@ func Mise(cfg *config.Config) []engine.Resource {
 		{
 			ID:   "mise_toolchains",
 			Kind: kinds.CommandGuarded{ID: "mise_toolchains_converged", Params: t, Wants: "configure mise toolchains"},
+			// NeedsProvider, not a hardcoded DependsOn on a specific
+			// resource ID: which resource actually installs mise
+			// varies by platform (linuxvendor.go's vendor_install_mise
+			// on apt/dnf Linux, since mise has no package there; pkg.go's
+			// base_packages everywhere else, since brew/pacman do have
+			// it). This module has no business knowing which one that
+			// is on any given run — the engine resolves it. See
+			// engine.Resource's doc comment for the full reasoning.
+			NeedsProvider: []string{"mise"},
 		},
 	}
 }
