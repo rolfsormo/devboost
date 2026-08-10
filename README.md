@@ -219,16 +219,50 @@ devboost clean --dry-run                    # preview first
 devboost clean                              # then actually run it
 ```
 
-### Legacy shell tooling cleanup
+---
 
-If devboost finds a pre-existing `~/.zshrc` with tooling that duplicates what it
-already manages — a leftover `zinit` setup loading the same plugins as devboost's
-`znap`, or `asdf` alongside devboost's `mise` — `apply` comments out the redundant
-lines in place (prefixed with `# devboost:disabled:...`) rather than deleting them,
-so you can review or restore them by hand at any time. Run `devboost clean` whenever
-you're ready to permanently remove those disabled lines; it's idempotent and safe to
-run repeatedly. Disable this behavior entirely with `legacy_shell.enable: false` in
-your config.
+## 🧹 Startup Optimizations
+
+A machine that's already had shell tooling installed by hand often ends up
+running two things that do the same job — one from that earlier setup, one
+from devboost — on every single shell start. devboost detects the overlap
+and disables the redundant half, so you only pay the startup cost once.
+
+| Found in your existing setup | Duplicates | Startup cost if left running |
+|---|---|---|
+| `zinit` loading `zsh-autosuggestions`/syntax highlighting | devboost's `znap` | wasted plugin load |
+| `asdf` sourced in `.zshrc` | devboost's `mise` | wasted version-manager init |
+| `nvm`'s shell hook sourced in `.zprofile` | devboost's `mise` | ~850–900ms per login shell — measured via `zprof` on a real machine, the single largest contributor found |
+| `oh-my-zsh` (framework: its own plugin manager, prompt, curated plugins) | devboost's `znap` + `starship` + curated plugin set | slower startup, and can cause conflicting keybindings/completions |
+
+**zinit, asdf, and nvm** are handled the same way: `apply` comments out just
+the redundant lines in place (prefixed `# devboost:disabled:...`) rather than
+deleting them, so you can review or restore them by hand at any time. Run
+`devboost clean` whenever you're ready to permanently remove the disabled
+lines — idempotent, safe to run repeatedly. Disable this detection entirely
+with `legacy_shell.enable: false` in your config.
+
+**oh-my-zsh** is a bigger structural overlap than a few lines, so it gets its
+own command instead of being silently commented out. `devboost doctor` warns
+if it detects `~/.oh-my-zsh`:
+
+```bash
+devboost migrate-from-oh-my-zsh --dry-run   # preview first
+devboost migrate-from-oh-my-zsh --yes       # then actually run it
+```
+
+This is destructive, so `--yes` is required to actually run it (dry-run never
+needs it). It replicates oh-my-zsh's own uninstaller — removes `~/.oh-my-zsh`,
+renames your current `.zshrc` to a timestamped `~/.zshrc.omz-uninstalled-*`
+backup, and restores `~/.zshrc.pre-oh-my-zsh` if that pre-install snapshot
+exists — then recovers anything you added to `.zshrc` *after* installing
+oh-my-zsh (aliases, `PATH` changes, etc.), which the plain uninstaller alone
+would otherwise strand in that backup. oh-my-zsh's own template lines
+(`ZSH_THEME`, `plugins=(...)`, `source $ZSH/oh-my-zsh.sh`, etc.) are stripped
+out first, so only your genuine additions get appended back. Your file is
+backed up first (see [File Layout](#file-layout)) before anything is
+rewritten. Review the result, then run `devboost apply` to add devboost's
+own setup.
 
 ---
 
@@ -342,20 +376,11 @@ By default, devboost installs plugins automatically via the TPM CLI after writin
 
 If you see `command not found: __zoxide_pwd`, ensure zoxide is installed and run `devboost apply` again to regenerate the config.
 
-### Already Using oh-my-zsh?
+### Already Using oh-my-zsh, zinit, asdf, or nvm?
 
-devboost provides its own plugin manager ([znap](https://github.com/marlonrichert/zsh-snap)), prompt ([starship](https://github.com/starship/starship)), and curated plugin set (autosuggestions, syntax highlighting). Running oh-my-zsh alongside devboost is redundant and can slow shell startup or cause conflicting keybindings/completions.
-
-`devboost doctor` will warn if it detects `~/.oh-my-zsh`. To remove it and recover any customizations:
-
-```bash
-devboost migrate-from-oh-my-zsh --dry-run   # preview first
-devboost migrate-from-oh-my-zsh --yes       # actually remove it
-```
-
-This is destructive, so `--yes` is required to actually run it (dry-run never needs it). It replicates oh-my-zsh's own uninstaller — removes `~/.oh-my-zsh`, renames your current `.zshrc` to a timestamped `~/.zshrc.omz-uninstalled-*` backup, and restores `~/.zshrc.pre-oh-my-zsh` if that pre-install snapshot exists — then recovers anything you added to `.zshrc` *after* installing oh-my-zsh (aliases, `PATH` changes, etc.), which the plain uninstaller alone would otherwise strand in that backup. oh-my-zsh's own template lines (`ZSH_THEME`, `plugins=(...)`, `source $ZSH/oh-my-zsh.sh`, etc.) are stripped out first, so only your genuine additions get appended back. Your file is backed up first (see [File Layout](#file-layout)) before anything is rewritten.
-
-Review the result, then run `devboost apply` to add devboost's own setup.
+See [Startup Optimizations](#-startup-optimizations) — devboost detects
+overlap with each of these and either disables the redundant lines in
+place or, for oh-my-zsh, offers a dedicated migration command.
 
 ---
 
