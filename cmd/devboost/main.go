@@ -33,8 +33,9 @@ Options:
   --dry-run            Show what would be done without making changes
   --no-optimizations   Skip the startup optimizations (zinit/asdf/nvm/oh-my-zsh
                         dedup) for this run; same as optimize.enable: false in config
-  --force              Let 'undo' proceed even though the system has pending
-                        changes since the last apply (undo refuses by default)
+  --force              Let 'undo' proceed even though something it would
+                        restore has changed since it last converged
+                        (undo refuses by default)
   --help, -h           Show this help message
   --version            Show version
 `
