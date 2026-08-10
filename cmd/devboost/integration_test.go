@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -115,6 +116,90 @@ func TestSandboxedApplyPlanDoctorIdempotent(t *testing.T) {
 	}
 	if string(firstZshrc) != string(secondZshrc) {
 		t.Fatalf("expected second apply to be idempotent (no .zshrc changes), got a diff:\nfirst:\n%s\nsecond:\n%s", firstZshrc, secondZshrc)
+	}
+
+	// undo right after a clean apply must proceed (regression test for
+	// the bug where a naive whole-system pending-diff pre-check always
+	// refused, because always-rerun resources like mise/tmux/corepack
+	// never show zero pending diffs even when nothing has drifted).
+	if out, err := run("undo", "--dry-run"); err != nil {
+		t.Fatalf("undo --dry-run failed: %v\n%s", err, out)
+	} else if !strings.Contains(out, "Would:") && !strings.Contains(out, "Nothing to undo") {
+		t.Fatalf("expected undo --dry-run to either preview a restore or report nothing to undo, got:\n%s", out)
+	}
+}
+
+// TestSandboxedUndoRefusesOnDrift builds its own sandboxed home with a
+// fake pre-existing oh-my-zsh installation, applies (which genuinely
+// migrates away from it), then simulates the user recreating
+// ~/.oh-my-zsh afterward — undo must refuse without --force and proceed
+// with it. Kept separate from TestSandboxedApplyPlanDoctorIdempotent so
+// the oh-my-zsh setup here can't perturb that test's own .zshrc-content
+// assertions, which assume no oh-my-zsh is present.
+func TestSandboxedUndoRefusesOnDrift(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping slow end-to-end integration test in -short mode")
+	}
+	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
+		t.Skipf("skipping on %s — package installation behavior is platform-dependent", runtime.GOOS)
+	}
+
+	bin := buildDevboost(t)
+	home := t.TempDir()
+
+	writeFile(t, filepath.Join(home, ".devboost.yaml"), "version: \"1.0.0\"\n")
+	omzDir := filepath.Join(home, ".oh-my-zsh")
+	if err := os.MkdirAll(omzDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(omzDir, "oh-my-zsh.sh"), "# fake oh-my-zsh\n")
+	writeFile(t, filepath.Join(home, ".zshrc"),
+		"export ZSH=\"$HOME/.oh-my-zsh\"\nsource $ZSH/oh-my-zsh.sh\nexport MY_VAR=\"hello\"\n")
+
+	env := append(os.Environ(),
+		"HOME="+home,
+		"XDG_CONFIG_HOME="+filepath.Join(home, ".config"),
+		"XDG_DATA_HOME="+filepath.Join(home, ".local", "share"),
+		"XDG_CACHE_HOME="+filepath.Join(home, ".cache"),
+		"XDG_STATE_HOME="+filepath.Join(home, ".local", "state"),
+	)
+	run := func(args ...string) (string, error) {
+		cmd := exec.Command(bin, args...)
+		cmd.Env = env
+		cmd.Dir = home
+		out, err := cmd.CombinedOutput()
+		return string(out), err
+	}
+
+	if out, err := run("apply"); err != nil {
+		t.Fatalf("apply failed: %v\n%s", err, out)
+	}
+	if _, err := os.Stat(omzDir); !os.IsNotExist(err) {
+		t.Fatalf("expected apply to have migrated ~/.oh-my-zsh away, stat err: %v", err)
+	}
+
+	// Simulate the user recreating ~/.oh-my-zsh after the migration
+	// already ran — real drift, since it no longer matches what undo's
+	// own backups describe.
+	if err := os.MkdirAll(omzDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(omzDir, "oh-my-zsh.sh"), "# reappeared after migration\n")
+
+	out, err := run("undo", "--dry-run")
+	if err != nil {
+		t.Fatalf("undo --dry-run (drifted) failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "Refusing to undo") {
+		t.Fatalf("expected undo to refuse when omz_migration has drifted, got:\n%s", out)
+	}
+
+	out, err = run("undo", "--dry-run", "--force")
+	if err != nil {
+		t.Fatalf("undo --dry-run --force failed: %v\n%s", err, out)
+	}
+	if strings.Contains(out, "Refusing to undo") {
+		t.Fatalf("expected --force to bypass the drift refusal, got:\n%s", out)
 	}
 }
 
