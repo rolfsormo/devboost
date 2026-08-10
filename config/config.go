@@ -129,6 +129,29 @@ func (c *Config) lookup(dottedKey string) (any, bool) {
 	return cur, true
 }
 
+// Set writes value at dottedKey, creating intermediate maps as needed —
+// the write-side mirror of lookup's read-side walk, so a value set here
+// is indistinguishable from Get's perspective from one the user wrote in
+// ~/.devboost.yaml. Used for CLI-flag overrides (e.g. --no-optimizations)
+// that need to behave exactly as if the user had written the equivalent
+// config key: Get can't tell the difference afterward, which is the
+// point — one code path (Get's existing default-handling) stays the only
+// place that decides what a key's absence/presence means, rather than a
+// second, parallel "was this overridden by a flag" concept.
+func (c *Config) Set(dottedKey string, value any) {
+	parts := strings.Split(strings.Trim(dottedKey, "."), ".")
+	cur := c.data
+	for _, part := range parts[:len(parts)-1] {
+		next, ok := cur[part].(map[string]any)
+		if !ok {
+			next = map[string]any{}
+			cur[part] = next
+		}
+		cur = next
+	}
+	cur[parts[len(parts)-1]] = value
+}
+
 func expandHome(s string) string {
 	if s == "~" {
 		if home, err := os.UserHomeDir(); err == nil {

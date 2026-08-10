@@ -131,6 +131,61 @@ func (l LineInFile) Diff() (*engine.PendingOp, error) {
 	}, nil
 }
 
+// Undo implements engine.Undoer: the exact inverse of Diff's Execute —
+// strip this migration's marker from any line currently carrying it,
+// restoring the original line byte-for-byte (the marker is a fixed
+// prefix prepended verbatim, so stripping it needs no re-encoding or
+// escaping to reverse). A nil PendingOp means no line in Path currently
+// carries this migration's marker — nothing to undo, not an error,
+// whether because it was never disabled or because a previous undo (or
+// the user, by hand) already restored it.
+func (l LineInFile) Undo() (*engine.PendingOp, error) {
+	data, err := os.ReadFile(l.Path)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", l.Path, err)
+	}
+
+	marker := MarkerFor(l.MigrationID)
+	lines := splitLines(string(data))
+	var toRestore []int
+	for i, line := range lines {
+		if strings.HasPrefix(line, marker) {
+			toRestore = append(toRestore, i)
+		}
+	}
+	if len(toRestore) == 0 {
+		return nil, nil
+	}
+
+	return &engine.PendingOp{
+		Description: fmt.Sprintf("restore %d disabled line(s) (%s) in %s", len(toRestore), l.MigrationID, l.Path),
+		Execute: func() error {
+			if err := snapshot(l.Path, l.MigrationID, "pre-undo"); err != nil {
+				return err
+			}
+			restore := make(map[int]bool, len(toRestore))
+			for _, i := range toRestore {
+				restore[i] = true
+			}
+			out := make([]string, len(lines))
+			for i, line := range lines {
+				if restore[i] {
+					out[i] = strings.TrimPrefix(line, marker)
+				} else {
+					out[i] = line
+				}
+			}
+			if err := os.WriteFile(l.Path, []byte(strings.Join(out, "\n")+trailingNewline(string(data))), 0o644); err != nil {
+				return err
+			}
+			return snapshot(l.Path, l.MigrationID, "post-undo")
+		},
+	}, nil
+}
+
 func splitLines(s string) []string {
 	s = strings.TrimSuffix(s, "\n")
 	if s == "" {

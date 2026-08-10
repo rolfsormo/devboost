@@ -83,3 +83,80 @@ func TestCommandGuardedPassesParams(t *testing.T) {
 		t.Fatalf("Converge saw %q, want %q", seenByConverge, "hello")
 	}
 }
+
+func TestCommandGuardedUndoErrorsWhenUnregistered(t *testing.T) {
+	c := CommandGuarded{ID: "definitely-not-registered-undo", Wants: "something"}
+	_, err := c.Undo()
+	if err == nil {
+		t.Fatal("expected an error for an unregistered CommandGuarded ID, got nil")
+	}
+}
+
+func TestCommandGuardedUndoNilWhenNoUndoConverge(t *testing.T) {
+	RegisterCommand("test-no-undo", GuardedCommand{
+		Satisfied: func(any) (bool, error) { return true, nil },
+		Converge:  func(any) error { return nil },
+	})
+	c := CommandGuarded{ID: "test-no-undo", Wants: "x"}
+	op, err := c.Undo()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if op != nil {
+		t.Fatalf("expected no pending undo op when UndoConverge is nil, got %+v", op)
+	}
+}
+
+func TestCommandGuardedUndoCallsUndoConverge(t *testing.T) {
+	undone := false
+	RegisterCommand("test-with-undo", GuardedCommand{
+		Satisfied:     func(any) (bool, error) { return true, nil },
+		Converge:      func(any) error { return nil },
+		UndoConverge:  func(any) error { undone = true; return nil },
+		UndoSatisfied: func(any) (bool, error) { return false, nil },
+	})
+	c := CommandGuarded{ID: "test-with-undo", Wants: "x"}
+	op, err := c.Undo()
+	if err != nil || op == nil {
+		t.Fatalf("op=%+v err=%v", op, err)
+	}
+	if err := op.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !undone {
+		t.Fatal("expected Undo's Execute to call UndoConverge")
+	}
+}
+
+func TestCommandGuardedUndoNilWhenUndoSatisfied(t *testing.T) {
+	called := false
+	RegisterCommand("test-undo-satisfied", GuardedCommand{
+		Satisfied:     func(any) (bool, error) { return true, nil },
+		Converge:      func(any) error { return nil },
+		UndoConverge:  func(any) error { called = true; return nil },
+		UndoSatisfied: func(any) (bool, error) { return true, nil },
+	})
+	c := CommandGuarded{ID: "test-undo-satisfied", Wants: "x"}
+	op, err := c.Undo()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if op != nil {
+		t.Fatalf("expected no pending undo op when UndoSatisfied is true, got %+v", op)
+	}
+	if called {
+		t.Fatal("expected UndoConverge not to be called when nothing to undo")
+	}
+}
+
+func TestCommandGuardedUndoErrorsWhenUndoConvergeSetButNoUndoSatisfied(t *testing.T) {
+	RegisterCommand("test-undo-missing-satisfied", GuardedCommand{
+		Satisfied:    func(any) (bool, error) { return true, nil },
+		Converge:     func(any) error { return nil },
+		UndoConverge: func(any) error { return nil },
+	})
+	c := CommandGuarded{ID: "test-undo-missing-satisfied", Wants: "x"}
+	if _, err := c.Undo(); err == nil {
+		t.Fatal("expected an error when UndoConverge is set without UndoSatisfied")
+	}
+}

@@ -29,6 +29,24 @@ type ResourceKind interface {
 	Diff() (*PendingOp, error)
 }
 
+// Undoer is implemented by a ResourceKind that can reverse its own last
+// Execute — checked via a type assertion against ResourceKind, not a
+// method every kind must implement (the same optional-interface pattern
+// io.Closer uses on top of io.Reader). Only kinds whose mutation is
+// meaningfully reversible bother: LineInFile's marker-based disable
+// (strip the marker, restore the original line) and the oh-my-zsh
+// migration's CommandGuarded (move its archived directory and backup
+// back into place). A kind that doesn't implement Undoer is simply not
+// undoable — "devboost undo" reports that plainly rather than erroring,
+// the same way a resource with no pending diff is reported as "nothing
+// to do" rather than an error.
+type Undoer interface {
+	// Undo reports the delta needed to reverse this kind's last Execute.
+	// A nil PendingOp means there is nothing to undo (e.g. Execute never
+	// ran, or already-undone).
+	Undo() (*PendingOp, error)
+}
+
 // PendingOp is the output of a diff: the delta between desired and live
 // state. It is never authored directly by a module — only a Diff call
 // produces it.

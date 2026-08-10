@@ -143,3 +143,111 @@ func TestLineInFileLeavesNonMatchingLinesAlone(t *testing.T) {
 		t.Fatalf("expected the non-matching line to remain present, got %q", got)
 	}
 }
+
+func TestLineInFileUndoRestoresExactOriginalLine(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	path := filepath.Join(home, ".zshrc")
+	original := `zinit light zsh-users/zsh-autosuggestions # trailing comment, tabs	and spaces`
+	writeLines(t, path, original, "eval \"$(mise activate zsh)\"")
+
+	l := LineInFile{Path: path, Pattern: "zinit light", MigrationID: "zinit-znap-dup"}
+	op, err := l.Diff()
+	if err != nil || op == nil {
+		t.Fatalf("setup: op=%+v err=%v", op, err)
+	}
+	if err := op.Execute(); err != nil {
+		t.Fatalf("setup execute: %v", err)
+	}
+
+	undoOp, err := l.Undo()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if undoOp == nil {
+		t.Fatal("expected a pending undo op for a marked line")
+	}
+	if err := undoOp.Execute(); err != nil {
+		t.Fatalf("undo execute: %v", err)
+	}
+
+	data, _ := os.ReadFile(path)
+	got := string(data)
+	if !strings.Contains(got, original) {
+		t.Fatalf("expected the original line restored exactly, got %q", got)
+	}
+	if strings.Contains(got, MarkerPrefix) {
+		t.Fatalf("expected no marker remaining after undo, got %q", got)
+	}
+	if !strings.Contains(got, "mise activate zsh") {
+		t.Fatalf("expected unrelated line to remain untouched, got %q", got)
+	}
+}
+
+func TestLineInFileUndoNilWhenNothingMarked(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	path := filepath.Join(home, ".zshrc")
+	writeLines(t, path, "eval \"$(mise activate zsh)\"")
+
+	l := LineInFile{Path: path, Pattern: "zinit light", MigrationID: "zinit-znap-dup"}
+	op, err := l.Undo()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if op != nil {
+		t.Fatalf("expected no pending undo op when nothing is marked, got %+v", op)
+	}
+}
+
+func TestLineInFileUndoNilWhenFileMissing(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	l := LineInFile{Path: filepath.Join(home, "missing"), Pattern: "zinit", MigrationID: "test"}
+	op, err := l.Undo()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if op != nil {
+		t.Fatalf("expected no pending undo op for a missing file, got %+v", op)
+	}
+}
+
+func TestLineInFileUndoOnlyRestoresOwnMigration(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	path := filepath.Join(home, ".zshrc")
+	writeLines(t, path, "zinit light zsh-users/zsh-autosuggestions", `. "/x/nvm.sh"`)
+
+	zinit := LineInFile{Path: path, Pattern: "zinit light", MigrationID: "zinit-znap-dup"}
+	if op, err := zinit.Diff(); err != nil || op == nil {
+		t.Fatalf("setup zinit diff: op=%+v err=%v", op, err)
+	} else if err := op.Execute(); err != nil {
+		t.Fatalf("setup zinit execute: %v", err)
+	}
+
+	nvm := LineInFile{Path: path, Pattern: `nvm\.sh`, MigrationID: "nvm-mise-dup"}
+	if op, err := nvm.Diff(); err != nil || op == nil {
+		t.Fatalf("setup nvm diff: op=%+v err=%v", op, err)
+	} else if err := op.Execute(); err != nil {
+		t.Fatalf("setup nvm execute: %v", err)
+	}
+
+	// Undoing zinit's migration must not touch nvm's marked line.
+	undoOp, err := zinit.Undo()
+	if err != nil || undoOp == nil {
+		t.Fatalf("op=%+v err=%v", undoOp, err)
+	}
+	if err := undoOp.Execute(); err != nil {
+		t.Fatalf("undo execute: %v", err)
+	}
+
+	data, _ := os.ReadFile(path)
+	got := string(data)
+	if strings.Contains(got, MarkerFor("zinit-znap-dup")) {
+		t.Fatalf("expected zinit's marker gone after its own undo, got %q", got)
+	}
+	if !strings.Contains(got, MarkerFor("nvm-mise-dup")) {
+		t.Fatalf("expected nvm's marker to remain untouched, got %q", got)
+	}
+}

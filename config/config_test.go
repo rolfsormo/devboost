@@ -196,3 +196,42 @@ func TestGetListNilWhenNotAList(t *testing.T) {
 		t.Fatalf("got %v, want nil", got)
 	}
 }
+
+func TestSetThenGetRoundTrips(t *testing.T) {
+	cfg, err := Load(filepath.Join(t.TempDir(), "does-not-exist.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Set("optimize.enable", "false")
+	if got := cfg.Get("optimize.enable", "true"); got != "false" {
+		t.Fatalf("got %q, want %q", got, "false")
+	}
+}
+
+func TestSetCreatesIntermediateMaps(t *testing.T) {
+	cfg, err := Load(filepath.Join(t.TempDir(), "does-not-exist.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// No "optimize" key exists at all yet — Set must create it rather
+	// than panic or silently no-op.
+	cfg.Set("optimize.enable", "false")
+	if got := cfg.Get("optimize.enable", "true"); got != "false" {
+		t.Fatalf("got %q, want %q", got, "false")
+	}
+}
+
+func TestSetOverridesExistingKeyFromFile(t *testing.T) {
+	path := writeFixture(t, "optimize:\n  enable: true\n")
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Get("optimize.enable", "MISSING"); got != "true" {
+		t.Fatalf("got %q, want %q before Set", got, "true")
+	}
+	cfg.Set("optimize.enable", "false")
+	if got := cfg.Get("optimize.enable", "MISSING"); got != "false" {
+		t.Fatalf("got %q, want %q after Set", got, "false")
+	}
+}
