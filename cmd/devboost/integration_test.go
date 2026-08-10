@@ -28,9 +28,46 @@ func TestSandboxedApplyPlanDoctorIdempotent(t *testing.T) {
 
 	writeFile(t, filepath.Join(home, ".devboost.yaml"), "version: \"1.0.0\"\n")
 
+	// Overriding only HOME does NOT fully sandbox this test — two
+	// separate real gaps, both confirmed by direct investigation of a
+	// real hang in this test on a real dev machine:
+	//
+	//  1. XDG-aware tools (confirmed for real — mise) read
+	//     $XDG_CONFIG_HOME directly, inherited unset from os.Environ()
+	//     otherwise.
+	//  2. mise's own config discovery walks UP the process's working
+	//     directory tree looking for config files — not HOME or
+	//     XDG_CONFIG_HOME at all for this part. Since the test binary's
+	//     subprocess inherits cmd.Dir unset (= the repo checkout's own
+	//     working directory, itself a real subdirectory of the real
+	//     $HOME), mise found and tried to load the developer's actual
+	//     ~/.config/mise/config.toml regardless of every env var
+	//     override above — confirmed directly: `env -i HOME=/tmp/fake
+	//     mise config`, run from inside this repo checkout, still
+	//     resolved the real global config; the same command run from
+	//     /tmp instead found nothing. mise then refused to proceed
+	//     because that real config file isn't "trusted" from this
+	//     process's perspective (a real mise security feature) — which
+	//     is what actually produced the observed hang, not an infinite
+	//     loop in devboost's own code.
+	//
+	// Fixed by setting cmd.Dir to the sandboxed home for every
+	// subprocess call below, so mise's upward directory walk starts (and
+	// stays) inside the sandbox — matching what a genuinely fresh
+	// machine's working directory tree looks like, not this repo's own
+	// checkout location.
+	env := append(os.Environ(),
+		"HOME="+home,
+		"XDG_CONFIG_HOME="+filepath.Join(home, ".config"),
+		"XDG_DATA_HOME="+filepath.Join(home, ".local", "share"),
+		"XDG_CACHE_HOME="+filepath.Join(home, ".cache"),
+		"XDG_STATE_HOME="+filepath.Join(home, ".local", "state"),
+	)
+
 	run := func(args ...string) (string, error) {
 		cmd := exec.Command(bin, args...)
-		cmd.Env = append(os.Environ(), "HOME="+home)
+		cmd.Env = env
+		cmd.Dir = home
 		out, err := cmd.CombinedOutput()
 		return string(out), err
 	}
