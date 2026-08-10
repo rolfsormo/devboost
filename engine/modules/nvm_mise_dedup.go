@@ -18,15 +18,15 @@ const nvmSourcePattern = `"[^"]*/nvm(\.sh|/etc/bash_completion\.d/nvm)"`
 // NvmMiseDedup ports the nvm-mise-dup half of
 // modules/module_legacy_shell.sh: nvm's shell hook (measured at
 // ~850-900ms per login shell — the dominant real-world contributor to
-// the startup-lag investigation this whole dedup mechanism came from)
-// sourced in ~/.zprofile alongside devboost's own mise, disabled in
-// place. See zinit_znap_dedup.go for the shared rationale behind all
-// three dedup modules.
+// the startup-lag investigation this whole optimization mechanism came
+// from) sourced in ~/.zprofile alongside devboost's own mise, disabled
+// in place. See zinit_znap_dedup.go for the shared rationale behind the
+// optimization modules.
 func NvmMiseDedup(cfg *config.Config) []engine.Resource {
-	if cfg.Get("legacy_shell.enable", "true") != "true" {
+	if cfg.Get("optimize.enable", "true") != "true" {
 		return nil
 	}
-	zprofile := cfg.Get("legacy_shell.zprofile", "~/.zprofile")
+	zprofile := cfg.Get("optimize.zprofile", "~/.zprofile")
 	if !fileHasMatch(zprofile, nvmSourcePattern) {
 		return nil
 	}

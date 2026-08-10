@@ -113,18 +113,18 @@ func TestNvmMiseDedupTargetsZprofileNotZshrc(t *testing.T) {
 	}
 }
 
-func TestDedupModulesDisabledByLegacyShellEnable(t *testing.T) {
+func TestDedupModulesDisabledByOptimizeEnable(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	writeFile(t, filepath.Join(home, ".zshrc"), "zinit light zsh-users/zsh-autosuggestions\n")
 	writeFile(t, filepath.Join(home, ".zprofile"), `[ -s "/x/nvm.sh" ] && \. "/x/nvm.sh"`+"\n")
 
-	cfg := loadFixtureConfig(t, "legacy_shell:\n  enable: false\n")
+	cfg := loadFixtureConfig(t, "optimize:\n  enable: false\n")
 	if got := ZinitZnapDedup(cfg); len(got) != 0 {
-		t.Fatalf("expected no resources when legacy_shell disabled, got %v", got)
+		t.Fatalf("expected no resources when optimize disabled, got %v", got)
 	}
 	if got := NvmMiseDedup(cfg); len(got) != 0 {
-		t.Fatalf("expected no resources when legacy_shell disabled, got %v", got)
+		t.Fatalf("expected no resources when optimize disabled, got %v", got)
 	}
 }
 

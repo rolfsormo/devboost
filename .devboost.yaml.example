@@ -77,11 +77,13 @@ zsh:
 
 # Detects and disables shell tooling that duplicates what devboost already
 # manages when found in your pre-existing ~/.zshrc/~/.zprofile (a leftover
-# zinit setup duplicating znap's plugins, asdf alongside mise, or nvm
-# alongside mise). Redundant lines are commented out (never deleted) so
-# you can review/undo by hand; run `devboost clean` separately to actually
-# remove the disabled lines.
-legacy_shell:
+# zinit setup duplicating znap's plugins, asdf alongside mise, nvm
+# alongside mise, or oh-my-zsh itself alongside znap/starship). Redundant
+# lines are commented out (never deleted); oh-my-zsh is migrated away from
+# with your post-install customizations recovered into .zshrc. Run
+# `devboost undo` to reverse any of this, or `devboost clean` to
+# permanently remove the disabled lines instead.
+optimize:
   enable: true
   zshrc: ~/.zshrc
   zprofile: ~/.zprofile

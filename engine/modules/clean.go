@@ -9,13 +9,13 @@ import (
 	"github.com/rolfsormo/devboost/engine/kinds"
 )
 
-// cleanManagedFiles lists every file a legacy-shell dedup migration might
+// cleanManagedFiles lists every file an optimization migration might
 // mark — ports core_legacy_shell.sh's _db_legacy_managed_files. Extend
 // here if a future migration_id targets a different file.
 func cleanManagedFiles(cfg *config.Config) []string {
 	return []string{
-		legacyShellZshrc(cfg),
-		cfg.Get("legacy_shell.zprofile", "~/.zprofile"),
+		optimizeZshrc(cfg),
+		cfg.Get("optimize.zprofile", "~/.zprofile"),
 	}
 }
 
