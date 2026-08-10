@@ -1,12 +1,16 @@
 # devboost 🚀
 
-**One command to transform your workstation into a modern, opinionated development environment.**
+**A curated, researched shell/dev-tool setup for macOS and Linux, installed with one command.**
 
-Transform your macOS or Linux machine into a productivity powerhouse with a single command. devboost installs and configures the best-in-class tools for modern development, all while preserving your existing customizations.
+devboost installs and configures a specific, opinionated set of modern CLI tools — zsh + starship, ripgrep/fd/bat/eza, mise for toolchains, tmux with session persistence — and wires them together correctly (aliases, PATH, shell init order). Every default is picked from real research into what the developer community actually converges on, documented in the code, not just assumed. It edits your shell config to make that happen, but only inside clearly-marked regions it owns, with a real `undo`.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/install.sh | sh -s -- apply
 ```
+
+Already have zinit, asdf, nvm, or oh-my-zsh set up the way you like? Add
+`--no-optimizations` to install just the tools and leave your existing shell
+setup alone — see [Quick Start](#-quick-start).
 
 > **✨ What you get:** A beautiful shell (zsh + starship), smart navigation (zoxide, fzf), powerful search (ripgrep, fd), modern replacements (bat, eza, dust, duf, procs), seamless toolchain management (mise), and a fully configured tmux setup — all in under 5 minutes.
 
@@ -32,6 +36,9 @@ Setting up a development environment is tedious. You spend hours installing tool
 ```bash
 # Download and run in one command
 curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/install.sh | sh -s -- apply
+
+# Or, to skip touching any existing shell tooling (zinit, asdf, nvm, oh-my-zsh):
+curl -fsSL https://raw.githubusercontent.com/rolfsormo/devboost/main/install.sh | sh -s -- apply --no-optimizations
 ```
 
 **That's it!** Your development environment is being set up. Grab a coffee ☕ — this takes a few minutes.
@@ -183,15 +190,16 @@ devboost [COMMAND] [OPTIONS]
 - **`apply`** - Set up your environment (default)
 - **`plan`** - Preview what would change (dry-run)
 - **`doctor`** - Check system health and prerequisites
+- **`undo`** - Reverse a prior [startup optimization](#-startup-optimizations) (zinit/asdf/nvm/oh-my-zsh)
 - **`uninstall`** - Remove devboost-managed files
-- **`clean`** - Remove devboost-disabled legacy-tooling lines and archived directories
-- **`migrate-from-oh-my-zsh`** - Remove oh-my-zsh and recover `.zshrc` customizations (destructive — needs `--yes`)
+- **`clean`** - Permanently remove devboost-disabled optimization lines and archived directories
 
 ### Options
 
 - `--config FILE` - Custom config file (default: `~/.devboost.yaml`)
 - `--dry-run` - Show what would be done without making changes
-- `--yes` - Confirm a destructive command (required by `migrate-from-oh-my-zsh`)
+- `--no-optimizations` - Skip [startup optimizations](#-startup-optimizations) for this run; same as `optimize.enable: false` in config
+- `--force` - Let `undo` proceed even though something it would restore has changed since it last converged (`undo` refuses by default — see below)
 - `--help, -h` - Show help message
 - `--version` - Show version
 
@@ -204,15 +212,19 @@ devboost plan
 # Set up your environment
 devboost apply
 
+# Set up your environment, but leave existing shell tooling untouched
+devboost apply --no-optimizations
+
 # Check system health
 devboost doctor
 
 # Use custom config
 devboost apply --config ~/my-config.yaml
 
-# Remove oh-my-zsh and recover your customizations
-devboost migrate-from-oh-my-zsh --dry-run   # preview first
-devboost migrate-from-oh-my-zsh --yes       # then actually run it
+# Reverse a startup optimization (undoes zinit/asdf/nvm dedup and/or
+# an oh-my-zsh migration, whichever devboost actually converged)
+devboost undo --dry-run                     # preview first
+devboost undo                               # then actually run it
 
 # Permanently remove lines devboost previously disabled (see below)
 devboost clean --dry-run                    # preview first
@@ -235,34 +247,47 @@ and disables the redundant half, so you only pay the startup cost once.
 | `nvm`'s shell hook sourced in `.zprofile` | devboost's `mise` | ~850–900ms per login shell — measured via `zprof` on a real machine, the single largest contributor found |
 | `oh-my-zsh` (framework: its own plugin manager, prompt, curated plugins) | devboost's `znap` + `starship` + curated plugin set | slower startup, and can cause conflicting keybindings/completions |
 
-**zinit, asdf, and nvm** are handled the same way: `apply` comments out just
-the redundant lines in place (prefixed `# devboost:disabled:...`) rather than
-deleting them, so you can review or restore them by hand at any time. Run
-`devboost clean` whenever you're ready to permanently remove the disabled
-lines — idempotent, safe to run repeatedly. Disable this detection entirely
-with `legacy_shell.enable: false` in your config.
+All four are converged automatically by a plain `devboost apply` — no
+confirmation prompt, no separate command, the same zero-prompt behavior as
+every other resource devboost manages. Reversibility is what makes that a
+reasonable default, not a pre-execution gate:
 
-**oh-my-zsh** is a bigger structural overlap than a few lines, so it gets its
-own command instead of being silently commented out. `devboost doctor` warns
-if it detects `~/.oh-my-zsh`:
+- **zinit, asdf, and nvm**: `apply` comments out just the redundant lines in
+  place (prefixed `# devboost:disabled:...`) rather than deleting them.
+- **oh-my-zsh**: `apply` replicates oh-my-zsh's own uninstaller — removes
+  `~/.oh-my-zsh` (archived, not deleted), renames your current `.zshrc` to a
+  timestamped `~/.zshrc.omz-uninstalled-*` backup, and restores
+  `~/.zshrc.pre-oh-my-zsh` if that pre-install snapshot exists — then
+  recovers anything you added to `.zshrc` *after* installing oh-my-zsh
+  (aliases, `PATH` changes, etc.), which the plain uninstaller alone would
+  otherwise strand in that backup. oh-my-zsh's own template lines
+  (`ZSH_THEME`, `plugins=(...)`, `source $ZSH/oh-my-zsh.sh`, etc.) are
+  stripped out first, so only your genuine additions get appended back.
+
+Every one of these is backed up first (see [File Layout](#file-layout)), and
+every one of these is undoable:
 
 ```bash
-devboost migrate-from-oh-my-zsh --dry-run   # preview first
-devboost migrate-from-oh-my-zsh --yes       # then actually run it
+devboost undo --dry-run   # preview what would be restored
+devboost undo             # restore whatever apply actually converged
 ```
 
-This is destructive, so `--yes` is required to actually run it (dry-run never
-needs it). It replicates oh-my-zsh's own uninstaller — removes `~/.oh-my-zsh`,
-renames your current `.zshrc` to a timestamped `~/.zshrc.omz-uninstalled-*`
-backup, and restores `~/.zshrc.pre-oh-my-zsh` if that pre-install snapshot
-exists — then recovers anything you added to `.zshrc` *after* installing
-oh-my-zsh (aliases, `PATH` changes, etc.), which the plain uninstaller alone
-would otherwise strand in that backup. oh-my-zsh's own template lines
-(`ZSH_THEME`, `plugins=(...)`, `source $ZSH/oh-my-zsh.sh`, etc.) are stripped
-out first, so only your genuine additions get appended back. Your file is
-backed up first (see [File Layout](#file-layout)) before anything is
-rewritten. Review the result, then run `devboost apply` to add devboost's
-own setup.
+`undo` reverses exactly what happened — it restores commented-out lines to
+their original text, and for oh-my-zsh, moves the archived `~/.oh-my-zsh`
+back into place and restores `.zshrc` from its pre-migration backup. Each
+restored backup is renamed (suffixed `-reverted`, kept on disk rather than
+deleted) so running `undo` again afterward correctly reports nothing left to
+restore, instead of redoing the same restore. If something `undo` would
+restore has changed since it last converged — e.g. you recreated
+`~/.oh-my-zsh` by hand after the migration already ran — `undo` refuses and
+tells you what changed, since its backups may no longer describe the current
+state accurately; pass `--force` if you want it to proceed anyway.
+
+To skip this detection entirely, up front, use `--no-optimizations` (see
+[Quick Start](#-quick-start)) or set `optimize.enable: false` in your config
+— the two are equivalent. `devboost clean` is a separate, one-way step: it
+permanently deletes lines `apply` previously commented out, instead of
+restoring them.
 
 ---
 
@@ -297,11 +322,13 @@ See [`.devboost.yaml.example`](.devboost.yaml.example) for all available options
 ## 🛡️ Safety & Philosophy
 
 Setup touches a few existing files — an include line in `.zshrc`, a
-marker block in `.tmux.conf`, redundant legacy-tool lines commented out
-in place — but always this way:
+marker block in `.tmux.conf`, redundant lines from other shell tooling
+commented out in place, and (if present) oh-my-zsh archived rather than
+deleted — but always this way:
 
 - ✅ **Backed up first** — first-touch backups in `~/.devboost/backups/` before any existing file is touched
-- ✅ **Edits confined to managed regions** — everything outside the include line/marker block is left alone; lines are never deleted, only commented out with a `# devboost:disabled:...` marker that can be reviewed or restored by hand
+- ✅ **Edits confined to managed regions** — everything outside the include line/marker block is left alone; lines are never deleted, only commented out with a `# devboost:disabled:...` marker
+- ✅ **Reversible** — `devboost undo` reverses any [startup optimization](#-startup-optimizations) apply converged
 - ✅ **Idempotent** — safe to run multiple times
 - ✅ **Preview mode** — use `plan` to see what would change
 - ✅ **Easy removal** — `uninstall` removes all managed files and blocks
@@ -379,8 +406,9 @@ If you see `command not found: __zoxide_pwd`, ensure zoxide is installed and run
 ### Already Using oh-my-zsh, zinit, asdf, or nvm?
 
 See [Startup Optimizations](#-startup-optimizations) — devboost detects
-overlap with each of these and either disables the redundant lines in
-place or, for oh-my-zsh, offers a dedicated migration command.
+overlap with each of these and converges away from it automatically as
+part of `apply`, reversibly (`devboost undo`). Use `--no-optimizations`
+to skip this detection entirely instead.
 
 ---
 
