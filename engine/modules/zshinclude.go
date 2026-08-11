@@ -15,10 +15,27 @@ const (
 	zshIncludeEnd   = "# <<< devboost include end"
 )
 
-// zshUnmarkedSourceRe matches a live (non-comment) line sourcing
-// .zshrc.devboost — ports the bash version's
-// grep -Eq '(^|[^#].*)\.zshrc\.devboost'.
-var zshUnmarkedSourceRe = regexp.MustCompile(`(^|[^#].*)\.zshrc\.devboost`)
+// zshUnmarkedSourceRe matches a line that actually sources
+// .zshrc.devboost (a `source`/`.` shell keyword immediately preceding
+// the reference, allowing the quotes/`$HOME`/whitespace real usage
+// wraps it in) — not merely a line that mentions the filename, e.g. in
+// a comment. Deliberately not anchored to line start: devboost's own
+// generated block (`[ -f "$HOME/.zshrc.devboost" ] && source
+// "$HOME/.zshrc.devboost"`) puts the real `source` after a condition
+// guard, and a user's pre-existing line could do the same — anchoring
+// to line start would miss that and reintroduce the more dangerous
+// failure mode this mechanism exists to prevent (double-sourcing).
+//
+// This replaces an earlier, looser port of the bash version's
+// grep -Eq '(^|[^#].*)\.zshrc\.devboost', which matched the bare
+// substring anywhere in a non-comment-led line — flagging something
+// like "# see .zshrc.devboost for details" as an unmarked source line
+// even though nothing there actually sources it. That false positive
+// was safe (it only produces an extra WARNING pending op telling the
+// user to remove a line that isn't really there, never a silent
+// double-source), but unnecessary now that the real forms in use are
+// known and can be matched directly. See issue #12.
+var zshUnmarkedSourceRe = regexp.MustCompile(`(^|[^#].*)(^|\s)(?:source|\.)\s+['"]?[^'"\n]*\.zshrc\.devboost`)
 
 // zshIncludeBlock is module-local, not a general resource kind: its
 // behavior (detect a pre-existing unmarked line sourcing the same file

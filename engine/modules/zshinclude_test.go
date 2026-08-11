@@ -114,20 +114,17 @@ func TestZshIncludeBlockWarnsInsteadOfDoubleSourcing(t *testing.T) {
 	}
 }
 
-// TestZshIncludeBlockRegexMatchesEvenInLooseComments documents an actual
-// weakness inherited from the bash version's own detection regex
-// ((^|[^#].*)\.zshrc\.devboost): [^#] only requires the character
+// TestZshIncludeBlockDoesNotFlagLooseCommentMention is the fix for the
+// weakness the bash version's own detection regex had
+// ((^|[^#].*)\.zshrc\.devboost): [^#] only required the character
 // immediately before the match to not be '#', so a comment like
 // "# see .zshrc.devboost for details" (space before the match, not '#')
-// still matches and triggers the same warn-and-skip path, even though
-// it's just a comment, not a real unmarked source line. This is existing
-// bash behavior (confirmed by running the actual grep -Eq command), not
-// something introduced by the port — ported faithfully rather than
-// silently "fixed," since unlike the unambiguous node_modules bug, this
-// one is a real product-behavior question (how strict should comment
-// detection be?) worth a deliberate decision, not a silent unilateral
-// change during a port.
-func TestZshIncludeBlockRegexMatchesEvenInLooseComments(t *testing.T) {
+// used to match and trigger the warn-and-skip path even though it's
+// just a comment, not a real unmarked source line. zshUnmarkedSourceRe
+// now requires an actual source/. keyword immediately preceding the
+// reference — a bare mention of the filename no longer counts. See
+// issue #12.
+func TestZshIncludeBlockDoesNotFlagLooseCommentMention(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	path := filepath.Join(home, ".zshrc")
@@ -141,8 +138,8 @@ func TestZshIncludeBlockRegexMatchesEvenInLooseComments(t *testing.T) {
 	if err != nil || op == nil {
 		t.Fatalf("op=%+v err=%v", op, err)
 	}
-	if !strings.Contains(op.Description, "WARNING") {
-		t.Fatalf("expected the (imperfect, faithfully-ported) regex to still flag this as a false positive, got %q", op.Description)
+	if strings.Contains(op.Description, "WARNING") {
+		t.Fatalf("expected a bare filename mention to no longer be flagged as an unmarked source, got %q", op.Description)
 	}
 }
 
@@ -164,5 +161,51 @@ func TestZshIncludeBlockDoesNotFlagDirectlyCommentedOutLine(t *testing.T) {
 	}
 	if strings.Contains(op.Description, "WARNING") {
 		t.Fatalf("expected normal append for a directly-adjacent-# comment, got %q", op.Description)
+	}
+}
+
+// TestZshIncludeBlockFlagsDotFormSource confirms the bare `.` (POSIX
+// dot, equivalent to `source`) form is still caught, not just the
+// `source` keyword.
+func TestZshIncludeBlockFlagsDotFormSource(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	path := filepath.Join(home, ".zshrc")
+	line := `. "$HOME/.zshrc.devboost"` + "\n"
+	if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	z := zshIncludeBlock{zshrcPath: path}
+	op, err := z.Diff()
+	if err != nil || op == nil {
+		t.Fatalf("op=%+v err=%v", op, err)
+	}
+	if !strings.Contains(op.Description, "WARNING") {
+		t.Fatalf("expected the dot-form source to be flagged, got %q", op.Description)
+	}
+}
+
+// TestZshIncludeBlockFlagsGuardedSourceMidLine confirms a real source
+// line is still caught even when the `source` keyword isn't at the
+// start of the line — devboost's own generated block puts it after a
+// `[ -f ... ] &&` guard, and a user's pre-existing line could do the
+// same. Anchoring the regex to line start would miss this.
+func TestZshIncludeBlockFlagsGuardedSourceMidLine(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	path := filepath.Join(home, ".zshrc")
+	line := `[ -f "$HOME/.zshrc.devboost" ] && source "$HOME/.zshrc.devboost"` + "\n"
+	if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	z := zshIncludeBlock{zshrcPath: path}
+	op, err := z.Diff()
+	if err != nil || op == nil {
+		t.Fatalf("op=%+v err=%v", op, err)
+	}
+	if !strings.Contains(op.Description, "WARNING") {
+		t.Fatalf("expected the guarded mid-line source to be flagged, got %q", op.Description)
 	}
 }
